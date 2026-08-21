@@ -56,3 +56,19 @@ export interface UpdateCampaignInput {
   startDate?: string;
   endDate?: string;
 }
+
+export const CsvRowErrorSchema = z.object({
+  rowNumber: z.number(),
+  message: z.string(),
+});
+
+export type CsvRowError = z.infer<typeof CsvRowErrorSchema>;
+
+export const CsvImportSummarySchema = z.object({
+  total: z.number(),
+  created: z.number(),
+  failed: z.number(),
+  errors: z.array(CsvRowErrorSchema),
+});
+
+export type CsvImportSummary = z.infer<typeof CsvImportSummarySchema>;

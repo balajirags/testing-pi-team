@@ -5,12 +5,14 @@ import { Campaign, CreateCampaignInput, UpdateCampaignInput } from '@/types/camp
 import { Header } from '@/components/Header';
 import { CampaignsTable } from '@/components/CampaignsTable';
 import { CampaignModal } from '@/components/CampaignModal';
+import { CampaignCsvImportModal } from '@/components/CampaignCsvImportModal';
 import { Toast } from '@/components/Toast';
 
 export const CampaignsDashboard: React.FC = () => {
   const queryClient = useQueryClient();
   const [selectedChannel, setSelectedChannel] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<Campaign | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -102,6 +104,7 @@ export const CampaignsDashboard: React.FC = () => {
           selectedChannel={selectedChannel}
           onChannelChange={setSelectedChannel}
           onOpenCreateModal={handleOpenCreateModal}
+          onOpenImportModal={() => setIsImportModalOpen(true)}
           onEditCampaign={handleEditCampaign}
           onDeleteCampaign={handleDeleteCampaign}
         />
@@ -112,6 +115,15 @@ export const CampaignsDashboard: React.FC = () => {
           onClose={() => setIsModalOpen(false)}
           onSubmitCreate={handleCreateSubmit}
           onSubmitUpdate={handleUpdateSubmit}
+        />
+
+        <CampaignCsvImportModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ['campaigns'] });
+            setToastMessage('Batch CSV import complete!');
+          }}
         />
 
         <Toast message={toastMessage} onClose={() => setToastMessage(null)} />

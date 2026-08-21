@@ -1,8 +1,10 @@
 import {
   CampaignSchema,
   PageCampaignSchema,
+  CsvImportSummarySchema,
   Campaign,
   PageCampaign,
+  CsvImportSummary,
   CreateCampaignInput,
   UpdateCampaignInput,
 } from '@/types/campaign';
@@ -99,4 +101,24 @@ export async function deleteCampaign(id: string): Promise<void> {
   if (!response.ok) {
     throw new Error(`Failed to delete campaign: ${response.statusText}`);
   }
+}
+
+export async function importCampaignsCsv(file: File): Promise<CsvImportSummary> {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch(`${API_BASE}/import`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = (await response.json().catch(() => ({}))) as {
+      detail?: string;
+    };
+    throw new Error(errorData.detail || `CSV import failed: ${response.statusText}`);
+  }
+
+  const rawData: unknown = await response.json();
+  return CsvImportSummarySchema.parse(rawData);
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { fetchCampaigns, createCampaign, updateCampaign, deleteCampaign } from '../api/campaigns';
+import { fetchCampaigns, createCampaign, updateCampaign, deleteCampaign, importCampaignsCsv } from '../api/campaigns';
 
 global.fetch = vi.fn();
 
@@ -109,5 +109,30 @@ describe('Campaigns API Client', () => {
     });
 
     await expect(deleteCampaign('cmp-1')).resolves.not.toThrow();
+  });
+
+  it('should upload CSV file and parse summary response', async () => {
+    const mockSummary = {
+      total: 10,
+      created: 8,
+      failed: 2,
+      errors: [
+        { rowNumber: 3, message: 'Brand not found' },
+        { rowNumber: 7, message: 'channel is required' },
+      ],
+    };
+
+    (fetch as unknown as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockSummary,
+    });
+
+    const file = new File(['header\ndata'], 'test.csv', { type: 'text/csv' });
+    const result = await importCampaignsCsv(file);
+
+    expect(result.total).toBe(10);
+    expect(result.created).toBe(8);
+    expect(result.failed).toBe(2);
+    expect(result.errors).toHaveLength(2);
   });
 });

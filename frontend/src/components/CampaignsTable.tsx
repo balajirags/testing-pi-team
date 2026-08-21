@@ -1,6 +1,6 @@
 import React from 'react';
 import { Campaign } from '@/types/campaign';
-import { Edit2, Trash2, Plus, Filter } from 'lucide-react';
+import { Edit2, Trash2, Plus, Filter, Upload } from 'lucide-react';
 
 interface CampaignsTableProps {
   campaigns: Campaign[];
@@ -8,6 +8,7 @@ interface CampaignsTableProps {
   selectedChannel: string;
   onChannelChange: (channel: string) => void;
   onOpenCreateModal: () => void;
+  onOpenImportModal: () => void;
   onEditCampaign: (campaign: Campaign) => void;
   onDeleteCampaign: (id: string) => void;
 }
@@ -18,6 +19,7 @@ export const CampaignsTable: React.FC<CampaignsTableProps> = ({
   selectedChannel,
   onChannelChange,
   onOpenCreateModal,
+  onOpenImportModal,
   onEditCampaign,
   onDeleteCampaign,
 }) => {
@@ -54,10 +56,16 @@ export const CampaignsTable: React.FC<CampaignsTableProps> = ({
           </select>
         </div>
 
-        <button className="btn btn-primary" onClick={onOpenCreateModal}>
-          <Plus size={18} />
-          <span>New Campaign</span>
-        </button>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button className="btn btn-secondary" onClick={onOpenImportModal}>
+            <Upload size={18} />
+            <span>Import CSV</span>
+          </button>
+          <button className="btn btn-primary" onClick={onOpenCreateModal}>
+            <Plus size={18} />
+            <span>New Campaign</span>
+          </button>
+        </div>
       </div>
 
       <div className="table-wrapper">
