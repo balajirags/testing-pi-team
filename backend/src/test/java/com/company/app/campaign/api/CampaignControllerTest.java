@@ -2,6 +2,7 @@ package com.company.app.campaign.api;
 
 import com.company.app.campaign.api.dto.CampaignResponse;
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
+import com.company.app.campaign.api.dto.CsvImportSummaryResponse;
 import com.company.app.campaign.api.dto.UpdateCampaignRequest;
 import com.company.app.campaign.domain.CampaignStatus;
 import com.company.app.campaign.exception.DuplicateResourceException;
@@ -20,6 +21,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
@@ -37,6 +39,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -372,5 +375,21 @@ class CampaignControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title", is("Resource Not Found")))
                 .andExpect(jsonPath("$.detail", containsString("Campaign not found")));
+    }
+
+    @Test
+    @DisplayName("POST /api/v1/campaigns/import - Happy path returns 200 OK with summary response")
+    void importCampaigns_HappyPath() throws Exception {
+        MockMultipartFile file = new MockMultipartFile("file", "campaigns.csv", "text/csv", "header\ndata".getBytes());
+        CsvImportSummaryResponse summaryResponse = new CsvImportSummaryResponse(50, 50, 0, List.of());
+
+        when(campaignService.importCampaignsFromCsv(any())).thenReturn(summaryResponse);
+
+        mockMvc.perform(multipart("/api/v1/campaigns/import").file(file))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total", is(50)))
+                .andExpect(jsonPath("$.created", is(50)))
+                .andExpect(jsonPath("$.failed", is(0)))
+                .andExpect(jsonPath("$.errors", hasSize(0)));
     }
 }

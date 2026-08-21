@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -28,6 +29,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -292,5 +294,30 @@ class CampaignIntegrationTest {
         mockMvc.perform(delete("/api/v1/campaigns/{id}", nonExistentId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title", is("Resource Not Found")));
+    }
+
+    @Test
+    @DisplayName("End to end batch CSV import with valid and invalid rows")
+    void endToEnd_ImportCampaignsFromCsv() throws Exception {
+        UUID invalidBrandId = UUID.randomUUID();
+        String csvContent = "name,brand_id,ad_account_id,budget,currency,channel,external_campaign_id\n" +
+                "Batch Campaign 1," + brandId + "," + adAccountId + ",1200.00,USD,META,batch_meta_1\n" +
+                "Batch Campaign 2," + brandId + "," + adAccountId + ",3400.00,USD,GOOGLE,batch_goog_2\n" +
+                "Bad Brand Campaign," + invalidBrandId + "," + adAccountId + ",500.00,USD,TIKTOK,batch_tiktok_3";
+
+        MockMultipartFile file = new MockMultipartFile("file", "campaigns.csv", "text/csv", csvContent.getBytes());
+
+        mockMvc.perform(multipart("/api/v1/campaigns/import").file(file))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.total", is(3)))
+                .andExpect(jsonPath("$.created", is(2)))
+                .andExpect(jsonPath("$.failed", is(1)))
+                .andExpect(jsonPath("$.errors", hasSize(1)))
+                .andExpect(jsonPath("$.errors[0].rowNumber", is(4)));
+
+        // Verify that 2 valid campaigns were created in DB and can be listed
+        mockMvc.perform(get("/api/v1/campaigns"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)));
     }
 }

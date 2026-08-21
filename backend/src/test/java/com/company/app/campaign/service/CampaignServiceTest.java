@@ -2,6 +2,7 @@ package com.company.app.campaign.service;
 
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
 import com.company.app.campaign.api.dto.CampaignResponse;
+import com.company.app.campaign.api.dto.CsvImportSummaryResponse;
 import com.company.app.campaign.api.dto.UpdateCampaignRequest;
 import com.company.app.campaign.domain.AdAccountEntity;
 import com.company.app.campaign.domain.BrandEntity;
@@ -26,6 +27,7 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -439,6 +441,135 @@ class CampaignServiceTest {
             assertThatThrownBy(() -> campaignService.deleteCampaign(campaignId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Campaign not found with ID: " + campaignId);
+        }
+    }
+
+    @Nested
+    @DisplayName("CSV Import Tests")
+    class CsvImportTests {
+
+        @Test
+        @DisplayName("Should import valid CSV rows successfully")
+        void importCampaignsFromCsv_Success() {
+            String csvContent = "name,brand_id,ad_account_id,budget,currency,channel,external_campaign_id\n" +
+                    "Campaign 1," + brandId + "," + adAccountId + ",1000.00,USD,META,meta_csv_1\n" +
+                    "Campaign 2," + brandId + "," + adAccountId + ",2000.00,USD,GOOGLE,goog_csv_2";
+
+            MockMultipartFile file = new MockMultipartFile("file", "campaigns.csv", "text/csv", csvContent.getBytes());
+
+            when(brandRepository.existsById(brandId)).thenReturn(true);
+            when(adAccountRepository.existsById(adAccountId)).thenReturn(true);
+            when(campaignRepository.existsByChannelAndExternalCampaignId(any(), any())).thenReturn(false);
+
+            CsvImportSummaryResponse summary = campaignService.importCampaignsFromCsv(file);
+
+            assertThat(summary).isNotNull();
+            assertThat(summary.total()).isEqualTo(2);
+            assertThat(summary.created()).isEqualTo(2);
+            assertThat(summary.failed()).isEqualTo(0);
+            assertThat(summary.errors()).isEmpty();
+        }
+
+        @Test
+        @DisplayName("Should record partial errors for invalid CSV rows")
+        void importCampaignsFromCsv_PartialErrors() {
+            UUID invalidBrandId = UUID.randomUUID();
+            String csvContent = "name,brand_id,ad_account_id,budget,currency,channel,external_campaign_id\n" +
+                    "Valid Campaign," + brandId + "," + adAccountId + ",1000.00,USD,META,meta_csv_valid\n" +
+                    "Invalid Brand Campaign," + invalidBrandId + "," + adAccountId + ",2000.00,USD,GOOGLE,goog_csv_invalid\n" +
+                    "Missing Channel Campaign," + brandId + "," + adAccountId + ",3000.00,USD,,goog_csv_nochannel";
+
+            MockMultipartFile file = new MockMultipartFile("file", "campaigns.csv", "text/csv", csvContent.getBytes());
+
+            when(brandRepository.existsById(brandId)).thenReturn(true);
+            when(brandRepository.existsById(invalidBrandId)).thenReturn(false);
+            when(adAccountRepository.existsById(adAccountId)).thenReturn(true);
+            when(campaignRepository.existsByChannelAndExternalCampaignId("META", "meta_csv_valid")).thenReturn(false);
+
+            CsvImportSummaryResponse summary = campaignService.importCampaignsFromCsv(file);
+
+            assertThat(summary).isNotNull();
+            assertThat(summary.total()).isEqualTo(3);
+            assertThat(summary.created()).isEqualTo(1);
+            assertThat(summary.failed()).isEqualTo(2);
+            assertThat(summary.errors()).hasSize(2);
+            assertThat(summary.errors().get(0).rowNumber()).isEqualTo(3);
+            assertThat(summary.errors().get(0).message()).contains("Brand not found");
+            assertThat(summary.errors().get(1).rowNumber()).isEqualTo(4);
+            assertThat(summary.errors().get(1).message()).contains("channel is required");
+        }
+
+        @Test
+        @DisplayName("Should throw IllegalArgumentException when CSV file is empty")
+        void importCampaignsFromCsv_EmptyFile() {
+            MockMultipartFile file = new MockMultipartFile("file", "empty.csv", "text/csv", new byte[0]);
+
+            assertThatThrownBy(() -> campaignService.importCampaignsFromCsv(file))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("CSV file must not be empty");
+        }
+
+        @Test
+        @DisplayName("Should throw IllegalArgumentException when header is missing or blank")
+        void importCampaignsFromCsv_MissingHeader() {
+            MockMultipartFile file = new MockMultipartFile("file", "blank.csv", "text/csv", "\n\n".getBytes());
+
+            assertThatThrownBy(() -> campaignService.importCampaignsFromCsv(file))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("CSV file must contain a header row");
+        }
+
+        @Test
+        @DisplayName("Should throw IllegalArgumentException when CSV row count exceeds 1000")
+        void importCampaignsFromCsv_ExceedsRowLimit() {
+            StringBuilder sb = new StringBuilder("name,brand_id,ad_account_id,budget,currency,channel,external_campaign_id\n");
+            for (int i = 0; i < 1001; i++) {
+                sb.append("Camp ").append(i).append(",").append(brandId).append(",").append(adAccountId).append(",100,USD,META,ext_").append(i).append("\n");
+            }
+            MockMultipartFile file = new MockMultipartFile("file", "large.csv", "text/csv", sb.toString().getBytes());
+
+            assertThatThrownBy(() -> campaignService.importCampaignsFromCsv(file))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("exceeds maximum limit of 1000 rows");
+        }
+
+        @Test
+        @DisplayName("Should record error for missing mandatory fields, invalid UUIDs, negative budgets, and duplicate mapping")
+        void importCampaignsFromCsv_RowValidationErrors() {
+            UUID missingAdAccountId = UUID.randomUUID();
+            String csvContent = "name,brand_id,ad_account_id,budget,currency,channel,external_campaign_id\n" +
+                    "," + brandId + "," + adAccountId + ",100,USD,META,ext_1\n" + // missing name
+                    "Row 3,not-a-uuid," + adAccountId + ",100,USD,META,ext_2\n" + // invalid brand_id UUID
+                    "Row 4," + brandId + ",not-a-uuid,100,USD,META,ext_3\n" + // invalid ad_account_id UUID
+                    "Row 5," + brandId + "," + missingAdAccountId + ",100,USD,META,ext_4\n" + // ad_account not found
+                    "Row 6," + brandId + "," + adAccountId + ",100,USD,META,\n" + // missing external_campaign_id
+                    "Row 7," + brandId + "," + adAccountId + ",100,USD,META,ext_dup\n" + // duplicate mapping
+                    "Row 8," + brandId + "," + adAccountId + ",-100,USD,META,ext_8\n" + // negative budget
+                    "Row 9," + brandId + "," + adAccountId + ",not-a-number,USD,META,ext_9\n"; // invalid budget number
+
+            MockMultipartFile file = new MockMultipartFile("file", "validation.csv", "text/csv", csvContent.getBytes());
+
+            when(brandRepository.existsById(brandId)).thenReturn(true);
+            when(adAccountRepository.existsById(adAccountId)).thenReturn(true);
+            when(adAccountRepository.existsById(missingAdAccountId)).thenReturn(false);
+            when(campaignRepository.existsByChannelAndExternalCampaignId("META", "ext_dup")).thenReturn(true);
+            when(campaignRepository.existsByChannelAndExternalCampaignId("META", "ext_8")).thenReturn(false);
+            when(campaignRepository.existsByChannelAndExternalCampaignId("META", "ext_9")).thenReturn(false);
+
+            CsvImportSummaryResponse summary = campaignService.importCampaignsFromCsv(file);
+
+            assertThat(summary.total()).isEqualTo(8);
+            assertThat(summary.created()).isEqualTo(0);
+            assertThat(summary.failed()).isEqualTo(8);
+            assertThat(summary.errors()).hasSize(8);
+            assertThat(summary.errors().get(0).message()).contains("name is required");
+            assertThat(summary.errors().get(1).message()).contains("Invalid brand_id UUID format");
+            assertThat(summary.errors().get(2).message()).contains("Invalid ad_account_id UUID format");
+            assertThat(summary.errors().get(3).message()).contains("Ad account not found");
+            assertThat(summary.errors().get(4).message()).contains("external_campaign_id is required");
+            assertThat(summary.errors().get(5).message()).contains("Campaign mapping already exists");
+            assertThat(summary.errors().get(6).message()).contains("budget must be non-negative");
+            assertThat(summary.errors().get(7).message()).contains("Invalid budget number format");
         }
     }
 }
