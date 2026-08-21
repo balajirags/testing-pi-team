@@ -1,0 +1,13 @@
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+
+# Gradle and Java build outputs
+**/.gradle/
+**/build/
+**/bin/
+
+# Java compiled classes
+**/*.class
