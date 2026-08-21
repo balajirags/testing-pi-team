@@ -14,17 +14,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -161,5 +168,82 @@ class CampaignControllerTest {
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title", is("Duplicate Resource")))
                 .andExpect(jsonPath("$.detail", containsString("Campaign mapping already exists")));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/campaigns - Happy path returns 200 OK with paginated list")
+    void listCampaigns_HappyPath() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+        UUID brandId = UUID.randomUUID();
+        UUID adAccountId = UUID.randomUUID();
+        Instant now = Instant.now();
+
+        CampaignResponse response = new CampaignResponse(
+                campaignId,
+                brandId,
+                adAccountId,
+                "Summer Promo",
+                new BigDecimal("2500.00"),
+                "USD",
+                "GOOGLE",
+                "goog_123",
+                CampaignStatus.DRAFT,
+                now,
+                now
+        );
+
+        Page<CampaignResponse> page = new PageImpl<>(List.of(response));
+        when(campaignService.listCampaigns(eq(brandId), eq("GOOGLE"), any(Pageable.class))).thenReturn(page);
+
+        mockMvc.perform(get("/api/v1/campaigns")
+                        .param("brandId", brandId.toString())
+                        .param("channel", "GOOGLE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].id", is(campaignId.toString())))
+                .andExpect(jsonPath("$.content[0].channel", is("GOOGLE")));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/campaigns/{id} - Happy path returns 200 OK with campaign")
+    void getCampaignById_HappyPath() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+        UUID brandId = UUID.randomUUID();
+        UUID adAccountId = UUID.randomUUID();
+        Instant now = Instant.now();
+
+        CampaignResponse response = new CampaignResponse(
+                campaignId,
+                brandId,
+                adAccountId,
+                "Summer Promo",
+                new BigDecimal("2500.00"),
+                "USD",
+                "GOOGLE",
+                "goog_123",
+                CampaignStatus.DRAFT,
+                now,
+                now
+        );
+
+        when(campaignService.getCampaignById(campaignId)).thenReturn(response);
+
+        mockMvc.perform(get("/api/v1/campaigns/{id}", campaignId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(campaignId.toString())))
+                .andExpect(jsonPath("$.name", is("Summer Promo")));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/campaigns/{id} - Not found returns 404 ProblemDetail")
+    void getCampaignById_NotFound() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+        when(campaignService.getCampaignById(campaignId))
+                .thenThrow(new ResourceNotFoundException("Campaign not found with ID: " + campaignId));
+
+        mockMvc.perform(get("/api/v1/campaigns/{id}", campaignId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title", is("Resource Not Found")))
+                .andExpect(jsonPath("$.detail", containsString("Campaign not found")));
     }
 }

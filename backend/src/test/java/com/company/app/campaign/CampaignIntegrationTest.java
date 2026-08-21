@@ -22,8 +22,10 @@ import org.springframework.test.web.servlet.MockMvc;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -106,5 +108,66 @@ class CampaignIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isConflict())
                 .andExpect(jsonPath("$.title", is("Duplicate Resource")));
+    }
+
+    @Test
+    @DisplayName("End to end list, filter and get campaign by ID via REST endpoints")
+    void endToEnd_ListFilterAndGetCampaign() throws Exception {
+        // Create 2 campaigns: one GOOGLE, one META
+        CreateCampaignRequest campaign1 = new CreateCampaignRequest(
+                brandId,
+                adAccountId,
+                "Google Search",
+                new BigDecimal("1000.00"),
+                "USD",
+                "GOOGLE",
+                "goog_100"
+        );
+        CreateCampaignRequest campaign2 = new CreateCampaignRequest(
+                brandId,
+                adAccountId,
+                "Meta Retargeting",
+                new BigDecimal("2000.00"),
+                "USD",
+                "META",
+                "meta_200"
+        );
+
+        String response1Str = mockMvc.perform(post("/api/v1/campaigns")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(campaign1)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        mockMvc.perform(post("/api/v1/campaigns")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(campaign2)))
+                .andExpect(status().isCreated());
+
+        CampaignResponse response1 = objectMapper.readValue(response1Str, CampaignResponse.class);
+
+        // 1. List all
+        mockMvc.perform(get("/api/v1/campaigns"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(2)));
+
+        // 2. Filter by channel=GOOGLE
+        mockMvc.perform(get("/api/v1/campaigns")
+                        .param("channel", "GOOGLE"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].name", is("Google Search")));
+
+        // 3. Get by ID happy path
+        mockMvc.perform(get("/api/v1/campaigns/{id}", response1.id()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(response1.id().toString())))
+                .andExpect(jsonPath("$.name", is("Google Search")));
+
+        // 4. Get by ID not found
+        UUID nonExistentId = UUID.randomUUID();
+        mockMvc.perform(get("/api/v1/campaigns/{id}", nonExistentId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title", is("Resource Not Found")));
     }
 }

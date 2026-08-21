@@ -13,14 +13,21 @@ import com.company.app.campaign.repository.BrandRepository;
 import com.company.app.campaign.repository.CampaignRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -164,5 +171,84 @@ class CampaignServiceTest {
         assertThatThrownBy(() -> campaignService.createCampaign(request))
                 .isInstanceOf(DuplicateResourceException.class)
                 .hasMessageContaining("Campaign mapping already exists");
+    }
+
+    @Nested
+    @DisplayName("List Campaigns Tests")
+    class ListCampaignsTests {
+
+        @Test
+        @DisplayName("Should return paginated list of campaigns")
+        void listCampaigns_Success() {
+            UUID campaignId = UUID.randomUUID();
+            Instant now = Instant.now();
+            CampaignEntity campaign = CampaignEntity.builder()
+                    .id(campaignId)
+                    .brandId(brandId)
+                    .adAccountId(adAccountId)
+                    .name("Q1 Retargeting")
+                    .budget(new BigDecimal("5000.00"))
+                    .currency("USD")
+                    .channel("META")
+                    .externalCampaignId("meta_123")
+                    .status(CampaignStatus.DRAFT)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            Page<CampaignEntity> entityPage = new PageImpl<>(List.of(campaign));
+            when(campaignRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(entityPage);
+
+            Page<CampaignResponse> result = campaignService.listCampaigns(brandId, "META", PageRequest.of(0, 20));
+
+            assertThat(result).isNotNull();
+            assertThat(result.getTotalElements()).isEqualTo(1);
+            assertThat(result.getContent().get(0).id()).isEqualTo(campaignId);
+            assertThat(result.getContent().get(0).channel()).isEqualTo("META");
+        }
+    }
+
+    @Nested
+    @DisplayName("Get Campaign By ID Tests")
+    class GetCampaignByIdTests {
+
+        @Test
+        @DisplayName("Should return campaign when campaign exists")
+        void getCampaignById_Success() {
+            UUID campaignId = UUID.randomUUID();
+            Instant now = Instant.now();
+            CampaignEntity campaign = CampaignEntity.builder()
+                    .id(campaignId)
+                    .brandId(brandId)
+                    .adAccountId(adAccountId)
+                    .name("Q1 Retargeting")
+                    .budget(new BigDecimal("5000.00"))
+                    .currency("USD")
+                    .channel("META")
+                    .externalCampaignId("meta_123")
+                    .status(CampaignStatus.DRAFT)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            when(campaignRepository.findById(campaignId)).thenReturn(Optional.of(campaign));
+
+            CampaignResponse response = campaignService.getCampaignById(campaignId);
+
+            assertThat(response).isNotNull();
+            assertThat(response.id()).isEqualTo(campaignId);
+            assertThat(response.name()).isEqualTo("Q1 Retargeting");
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when campaign does not exist")
+        void getCampaignById_NotFound() {
+            UUID campaignId = UUID.randomUUID();
+            when(campaignRepository.findById(campaignId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> campaignService.getCampaignById(campaignId))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Campaign not found with ID: " + campaignId);
+        }
     }
 }

@@ -9,9 +9,17 @@ import com.company.app.campaign.exception.ResourceNotFoundException;
 import com.company.app.campaign.repository.AdAccountRepository;
 import com.company.app.campaign.repository.BrandRepository;
 import com.company.app.campaign.repository.CampaignRepository;
+import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -55,6 +63,30 @@ public class CampaignService {
         CampaignEntity saved = campaignRepository.save(campaign);
 
         return mapToResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CampaignResponse> listCampaigns(UUID brandId, String channel, Pageable pageable) {
+        Specification<CampaignEntity> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            if (brandId != null) {
+                predicates.add(cb.equal(root.get("brandId"), brandId));
+            }
+            if (channel != null && !channel.isBlank()) {
+                predicates.add(cb.equal(root.get("channel"), channel));
+            }
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        return campaignRepository.findAll(spec, pageable)
+                .map(this::mapToResponse);
+    }
+
+    @Transactional(readOnly = true)
+    public CampaignResponse getCampaignById(UUID id) {
+        CampaignEntity campaign = campaignRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + id));
+        return mapToResponse(campaign);
     }
 
     private CampaignResponse mapToResponse(CampaignEntity entity) {
