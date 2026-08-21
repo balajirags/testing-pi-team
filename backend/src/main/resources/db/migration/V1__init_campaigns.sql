@@ -1,0 +1,27 @@
+CREATE TABLE brands (
+    id UUID PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE ad_accounts (
+    id UUID PRIMARY KEY,
+    brand_id UUID NOT NULL REFERENCES brands(id),
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE campaigns (
+    id UUID PRIMARY KEY,
+    brand_id UUID NOT NULL REFERENCES brands(id),
+    ad_account_id UUID NOT NULL REFERENCES ad_accounts(id),
+    name VARCHAR(255) NOT NULL,
+    budget NUMERIC(15, 2),
+    currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+    channel VARCHAR(50) NOT NULL,
+    external_campaign_id VARCHAR(255) NOT NULL,
+    status VARCHAR(50) NOT NULL DEFAULT 'DRAFT',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
+    CONSTRAINT uk_campaigns_channel_ext_id UNIQUE (channel, external_campaign_id)
+);
