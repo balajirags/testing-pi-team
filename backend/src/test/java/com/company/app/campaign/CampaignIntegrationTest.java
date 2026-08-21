@@ -26,6 +26,7 @@ import java.util.UUID;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -239,6 +240,56 @@ class CampaignIntegrationTest {
         mockMvc.perform(put("/api/v1/campaigns/{id}", missingId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(update1)))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title", is("Resource Not Found")));
+    }
+
+    @Test
+    @DisplayName("End to end campaign soft-delete and list filtering via REST endpoints")
+    void endToEnd_DeleteCampaign() throws Exception {
+        CreateCampaignRequest createRequest = new CreateCampaignRequest(
+                brandId,
+                adAccountId,
+                "Campaign To Delete",
+                new BigDecimal("1500.00"),
+                "USD",
+                "GOOGLE",
+                "goog_400"
+        );
+
+        String createRespStr = mockMvc.perform(post("/api/v1/campaigns")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        CampaignResponse created = objectMapper.readValue(createRespStr, CampaignResponse.class);
+
+        // 1. Delete campaign -> 204 No Content
+        mockMvc.perform(delete("/api/v1/campaigns/{id}", created.id()))
+                .andExpect(status().isNoContent());
+
+        // 2. Fetch campaign by ID -> returns 200 OK with ARCHIVED status
+        mockMvc.perform(get("/api/v1/campaigns/{id}", created.id()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(created.id().toString())))
+                .andExpect(jsonPath("$.status", is("ARCHIVED")));
+
+        // 3. Default list campaigns -> excludes ARCHIVED campaign
+        mockMvc.perform(get("/api/v1/campaigns"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(0)));
+
+        // 4. List campaigns with status=ARCHIVED -> includes archived campaign
+        mockMvc.perform(get("/api/v1/campaigns")
+                        .param("status", "ARCHIVED"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content", hasSize(1)))
+                .andExpect(jsonPath("$.content[0].id", is(created.id().toString())));
+
+        // 5. Delete non-existent campaign -> 404 Not Found
+        UUID nonExistentId = UUID.randomUUID();
+        mockMvc.perform(delete("/api/v1/campaigns/{id}", nonExistentId))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title", is("Resource Not Found")));
     }

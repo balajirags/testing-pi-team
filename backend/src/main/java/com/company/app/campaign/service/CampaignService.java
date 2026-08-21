@@ -69,7 +69,7 @@ public class CampaignService {
     }
 
     @Transactional(readOnly = true)
-    public Page<CampaignResponse> listCampaigns(UUID brandId, String channel, Pageable pageable) {
+    public Page<CampaignResponse> listCampaigns(UUID brandId, String channel, CampaignStatus status, Pageable pageable) {
         Specification<CampaignEntity> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (brandId != null) {
@@ -77,6 +77,11 @@ public class CampaignService {
             }
             if (channel != null && !channel.isBlank()) {
                 predicates.add(cb.equal(root.get("channel"), channel));
+            }
+            if (status != null) {
+                predicates.add(cb.equal(root.get("status"), status));
+            } else {
+                predicates.add(cb.notEqual(root.get("status"), CampaignStatus.ARCHIVED));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
         };
@@ -127,6 +132,15 @@ public class CampaignService {
 
         CampaignEntity saved = campaignRepository.save(campaign);
         return mapToResponse(saved);
+    }
+
+    @Transactional
+    public void deleteCampaign(UUID id) {
+        CampaignEntity campaign = campaignRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + id));
+
+        campaign.setStatus(CampaignStatus.ARCHIVED);
+        campaignRepository.save(campaign);
     }
 
     private void validateStatusTransition(CampaignStatus currentStatus, CampaignStatus newStatus) {

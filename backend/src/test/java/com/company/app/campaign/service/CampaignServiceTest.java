@@ -201,7 +201,7 @@ class CampaignServiceTest {
             Page<CampaignEntity> entityPage = new PageImpl<>(List.of(campaign));
             when(campaignRepository.findAll(any(Specification.class), any(Pageable.class))).thenReturn(entityPage);
 
-            Page<CampaignResponse> result = campaignService.listCampaigns(brandId, "META", PageRequest.of(0, 20));
+            Page<CampaignResponse> result = campaignService.listCampaigns(brandId, "META", null, PageRequest.of(0, 20));
 
             assertThat(result).isNotNull();
             assertThat(result.getTotalElements()).isEqualTo(1);
@@ -395,6 +395,50 @@ class CampaignServiceTest {
             assertThatThrownBy(() -> campaignService.updateCampaign(campaignId, request))
                     .isInstanceOf(IllegalArgumentException.class)
                     .hasMessageContaining("End date must be equal to or after start date");
+        }
+    }
+
+    @Nested
+    @DisplayName("Delete Campaign Tests")
+    class DeleteCampaignTests {
+
+        @Test
+        @DisplayName("Should soft-delete campaign by setting status to ARCHIVED")
+        void deleteCampaign_Success() {
+            UUID campaignId = UUID.randomUUID();
+            Instant now = Instant.now();
+
+            CampaignEntity campaign = CampaignEntity.builder()
+                    .id(campaignId)
+                    .brandId(brandId)
+                    .adAccountId(adAccountId)
+                    .name("Promo")
+                    .budget(new BigDecimal("1000.00"))
+                    .currency("USD")
+                    .channel("GOOGLE")
+                    .externalCampaignId("goog_1")
+                    .status(CampaignStatus.ACTIVE)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            when(campaignRepository.findById(campaignId)).thenReturn(Optional.of(campaign));
+
+            campaignService.deleteCampaign(campaignId);
+
+            assertThat(campaign.getStatus()).isEqualTo(CampaignStatus.ARCHIVED);
+            verify(campaignRepository).save(campaign);
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when deleting non-existent campaign")
+        void deleteCampaign_NotFound() {
+            UUID campaignId = UUID.randomUUID();
+            when(campaignRepository.findById(campaignId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> campaignService.deleteCampaign(campaignId))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Campaign not found with ID: " + campaignId);
         }
     }
 }

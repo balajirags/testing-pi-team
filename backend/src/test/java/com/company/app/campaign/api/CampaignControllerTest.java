@@ -32,7 +32,10 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
@@ -200,7 +203,7 @@ class CampaignControllerTest {
         );
 
         Page<CampaignResponse> page = new PageImpl<>(List.of(response));
-        when(campaignService.listCampaigns(eq(brandId), eq("GOOGLE"), any(Pageable.class))).thenReturn(page);
+        when(campaignService.listCampaigns(eq(brandId), eq("GOOGLE"), eq(null), any(Pageable.class))).thenReturn(page);
 
         mockMvc.perform(get("/api/v1/campaigns")
                         .param("brandId", brandId.toString())
@@ -344,5 +347,30 @@ class CampaignControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.title", is("Invalid Request State or Argument")))
                 .andExpect(jsonPath("$.detail", containsString("Cannot transition campaign status from COMPLETED to DRAFT")));
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/campaigns/{id} - Happy path returns 204 No Content")
+    void deleteCampaign_HappyPath() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+
+        mockMvc.perform(delete("/api/v1/campaigns/{id}", campaignId))
+                .andExpect(status().isNoContent());
+
+        verify(campaignService).deleteCampaign(campaignId);
+    }
+
+    @Test
+    @DisplayName("DELETE /api/v1/campaigns/{id} - Not found returns 404 ProblemDetail")
+    void deleteCampaign_NotFound() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+
+        doThrow(new ResourceNotFoundException("Campaign not found with ID: " + campaignId))
+                .when(campaignService).deleteCampaign(campaignId);
+
+        mockMvc.perform(delete("/api/v1/campaigns/{id}", campaignId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title", is("Resource Not Found")))
+                .andExpect(jsonPath("$.detail", containsString("Campaign not found")));
     }
 }
