@@ -2,6 +2,7 @@ package com.company.app.campaign;
 
 import com.company.app.campaign.api.dto.CampaignResponse;
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
+import com.company.app.campaign.api.dto.UpdateCampaignRequest;
 import com.company.app.campaign.domain.AdAccountEntity;
 import com.company.app.campaign.domain.BrandEntity;
 import com.company.app.campaign.domain.CampaignStatus;
@@ -27,6 +28,7 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -167,6 +169,76 @@ class CampaignIntegrationTest {
         // 4. Get by ID not found
         UUID nonExistentId = UUID.randomUUID();
         mockMvc.perform(get("/api/v1/campaigns/{id}", nonExistentId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title", is("Resource Not Found")));
+    }
+
+    @Test
+    @DisplayName("End to end campaign update via REST endpoint")
+    void endToEnd_UpdateCampaign() throws Exception {
+        CreateCampaignRequest createRequest = new CreateCampaignRequest(
+                brandId,
+                adAccountId,
+                "Initial Campaign",
+                new BigDecimal("1000.00"),
+                "USD",
+                "GOOGLE",
+                "goog_300"
+        );
+
+        String createRespStr = mockMvc.perform(post("/api/v1/campaigns")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        CampaignResponse created = objectMapper.readValue(createRespStr, CampaignResponse.class);
+
+        // 1. Update budget and status to ACTIVE
+        UpdateCampaignRequest update1 = new UpdateCampaignRequest(
+                "Updated Campaign Name",
+                new BigDecimal("10000.00"),
+                "USD",
+                CampaignStatus.ACTIVE,
+                null,
+                null
+        );
+
+        mockMvc.perform(put("/api/v1/campaigns/{id}", created.id())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update1)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.name", is("Updated Campaign Name")))
+                .andExpect(jsonPath("$.budget", is(10000.00)))
+                .andExpect(jsonPath("$.status", is("ACTIVE")));
+
+        // 2. Transition status to COMPLETED
+        UpdateCampaignRequest update2 = new UpdateCampaignRequest(
+                null, null, null, CampaignStatus.COMPLETED, null, null
+        );
+
+        mockMvc.perform(put("/api/v1/campaigns/{id}", created.id())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update2)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status", is("COMPLETED")));
+
+        // 3. Attempt invalid status transition COMPLETED -> DRAFT
+        UpdateCampaignRequest invalidTransition = new UpdateCampaignRequest(
+                null, null, null, CampaignStatus.DRAFT, null, null
+        );
+
+        mockMvc.perform(put("/api/v1/campaigns/{id}", created.id())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(invalidTransition)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title", is("Invalid Request State or Argument")));
+
+        // 4. Update non-existent campaign -> 404
+        UUID missingId = UUID.randomUUID();
+        mockMvc.perform(put("/api/v1/campaigns/{id}", missingId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(update1)))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title", is("Resource Not Found")));
     }

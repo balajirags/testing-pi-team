@@ -2,11 +2,13 @@ package com.company.app.campaign.service;
 
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
 import com.company.app.campaign.api.dto.CampaignResponse;
+import com.company.app.campaign.api.dto.UpdateCampaignRequest;
 import com.company.app.campaign.domain.AdAccountEntity;
 import com.company.app.campaign.domain.BrandEntity;
 import com.company.app.campaign.domain.CampaignEntity;
 import com.company.app.campaign.domain.CampaignStatus;
 import com.company.app.campaign.exception.DuplicateResourceException;
+import com.company.app.campaign.exception.InvalidStateTransitionException;
 import com.company.app.campaign.exception.ResourceNotFoundException;
 import com.company.app.campaign.repository.AdAccountRepository;
 import com.company.app.campaign.repository.BrandRepository;
@@ -249,6 +251,150 @@ class CampaignServiceTest {
             assertThatThrownBy(() -> campaignService.getCampaignById(campaignId))
                     .isInstanceOf(ResourceNotFoundException.class)
                     .hasMessageContaining("Campaign not found with ID: " + campaignId);
+        }
+    }
+
+    @Nested
+    @DisplayName("Update Campaign Tests")
+    class UpdateCampaignTests {
+
+        @Test
+        @DisplayName("Should successfully update campaign when request is valid")
+        void updateCampaign_Success() {
+            UUID campaignId = UUID.randomUUID();
+            Instant now = Instant.now();
+            Instant startDate = now.plusSeconds(3600);
+            Instant endDate = now.plusSeconds(86400);
+
+            CampaignEntity existing = CampaignEntity.builder()
+                    .id(campaignId)
+                    .brandId(brandId)
+                    .adAccountId(adAccountId)
+                    .name("Old Name")
+                    .budget(new BigDecimal("1000.00"))
+                    .currency("USD")
+                    .channel("GOOGLE")
+                    .externalCampaignId("goog_1")
+                    .status(CampaignStatus.DRAFT)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            UpdateCampaignRequest request = new UpdateCampaignRequest(
+                    "New Name",
+                    new BigDecimal("10000.00"),
+                    "EUR",
+                    CampaignStatus.ACTIVE,
+                    startDate,
+                    endDate
+            );
+
+            when(campaignRepository.findById(campaignId)).thenReturn(Optional.of(existing));
+            when(campaignRepository.save(any(CampaignEntity.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+            CampaignResponse response = campaignService.updateCampaign(campaignId, request);
+
+            assertThat(response).isNotNull();
+            assertThat(response.name()).isEqualTo("New Name");
+            assertThat(response.budget()).isEqualTo(new BigDecimal("10000.00"));
+            assertThat(response.currency()).isEqualTo("EUR");
+            assertThat(response.status()).isEqualTo(CampaignStatus.ACTIVE);
+            assertThat(response.startDate()).isEqualTo(startDate);
+            assertThat(response.endDate()).isEqualTo(endDate);
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when updating non-existent campaign")
+        void updateCampaign_NotFound() {
+            UUID campaignId = UUID.randomUUID();
+            UpdateCampaignRequest request = new UpdateCampaignRequest(
+                    "New Name",
+                    new BigDecimal("1000.00"),
+                    "USD",
+                    CampaignStatus.ACTIVE,
+                    null,
+                    null
+            );
+
+            when(campaignRepository.findById(campaignId)).thenReturn(Optional.empty());
+
+            assertThatThrownBy(() -> campaignService.updateCampaign(campaignId, request))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Campaign not found with ID: " + campaignId);
+        }
+
+        @Test
+        @DisplayName("Should throw InvalidStateTransitionException when transitioning COMPLETED campaign to DRAFT")
+        void updateCampaign_InvalidStatusTransition() {
+            UUID campaignId = UUID.randomUUID();
+            Instant now = Instant.now();
+
+            CampaignEntity completedCampaign = CampaignEntity.builder()
+                    .id(campaignId)
+                    .brandId(brandId)
+                    .adAccountId(adAccountId)
+                    .name("Finished Promo")
+                    .budget(new BigDecimal("5000.00"))
+                    .currency("USD")
+                    .channel("GOOGLE")
+                    .externalCampaignId("goog_99")
+                    .status(CampaignStatus.COMPLETED)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            UpdateCampaignRequest request = new UpdateCampaignRequest(
+                    null,
+                    null,
+                    null,
+                    CampaignStatus.DRAFT,
+                    null,
+                    null
+            );
+
+            when(campaignRepository.findById(campaignId)).thenReturn(Optional.of(completedCampaign));
+
+            assertThatThrownBy(() -> campaignService.updateCampaign(campaignId, request))
+                    .isInstanceOf(InvalidStateTransitionException.class)
+                    .hasMessageContaining("Cannot transition campaign status from COMPLETED to DRAFT");
+        }
+
+        @Test
+        @DisplayName("Should throw IllegalArgumentException when end date is before start date")
+        void updateCampaign_InvalidDates() {
+            UUID campaignId = UUID.randomUUID();
+            Instant now = Instant.now();
+            Instant startDate = now.plusSeconds(86400);
+            Instant endDate = now; // earlier than start date
+
+            CampaignEntity campaign = CampaignEntity.builder()
+                    .id(campaignId)
+                    .brandId(brandId)
+                    .adAccountId(adAccountId)
+                    .name("Promo")
+                    .budget(new BigDecimal("1000.00"))
+                    .currency("USD")
+                    .channel("GOOGLE")
+                    .externalCampaignId("goog_1")
+                    .status(CampaignStatus.DRAFT)
+                    .createdAt(now)
+                    .updatedAt(now)
+                    .build();
+
+            UpdateCampaignRequest request = new UpdateCampaignRequest(
+                    null,
+                    null,
+                    null,
+                    null,
+                    startDate,
+                    endDate
+            );
+
+            when(campaignRepository.findById(campaignId)).thenReturn(Optional.of(campaign));
+
+            assertThatThrownBy(() -> campaignService.updateCampaign(campaignId, request))
+                    .isInstanceOf(IllegalArgumentException.class)
+                    .hasMessageContaining("End date must be equal to or after start date");
         }
     }
 }

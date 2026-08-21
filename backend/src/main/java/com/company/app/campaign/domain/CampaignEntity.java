@@ -52,6 +52,12 @@ public class CampaignEntity {
     @Column(nullable = false, length = 50)
     private CampaignStatus status;
 
+    @Column(name = "start_date")
+    private Instant startDate;
+
+    @Column(name = "end_date")
+    private Instant endDate;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

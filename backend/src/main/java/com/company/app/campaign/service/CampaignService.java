@@ -2,9 +2,11 @@ package com.company.app.campaign.service;
 
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
 import com.company.app.campaign.api.dto.CampaignResponse;
+import com.company.app.campaign.api.dto.UpdateCampaignRequest;
 import com.company.app.campaign.domain.CampaignEntity;
 import com.company.app.campaign.domain.CampaignStatus;
 import com.company.app.campaign.exception.DuplicateResourceException;
+import com.company.app.campaign.exception.InvalidStateTransitionException;
 import com.company.app.campaign.exception.ResourceNotFoundException;
 import com.company.app.campaign.repository.AdAccountRepository;
 import com.company.app.campaign.repository.BrandRepository;
@@ -17,6 +19,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -89,6 +92,57 @@ public class CampaignService {
         return mapToResponse(campaign);
     }
 
+    @Transactional
+    public CampaignResponse updateCampaign(UUID id, UpdateCampaignRequest request) {
+        CampaignEntity campaign = campaignRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Campaign not found with ID: " + id));
+
+        if (request.status() != null && request.status() != campaign.getStatus()) {
+            validateStatusTransition(campaign.getStatus(), request.status());
+            campaign.setStatus(request.status());
+        }
+
+        Instant effectiveStartDate = request.startDate() != null ? request.startDate() : campaign.getStartDate();
+        Instant effectiveEndDate = request.endDate() != null ? request.endDate() : campaign.getEndDate();
+
+        if (effectiveStartDate != null && effectiveEndDate != null && effectiveEndDate.isBefore(effectiveStartDate)) {
+            throw new IllegalArgumentException("End date must be equal to or after start date");
+        }
+
+        if (request.name() != null) {
+            campaign.setName(request.name());
+        }
+        if (request.budget() != null) {
+            campaign.setBudget(request.budget());
+        }
+        if (request.currency() != null) {
+            campaign.setCurrency(request.currency());
+        }
+        if (request.startDate() != null) {
+            campaign.setStartDate(request.startDate());
+        }
+        if (request.endDate() != null) {
+            campaign.setEndDate(request.endDate());
+        }
+
+        CampaignEntity saved = campaignRepository.save(campaign);
+        return mapToResponse(saved);
+    }
+
+    private void validateStatusTransition(CampaignStatus currentStatus, CampaignStatus newStatus) {
+        if (currentStatus == CampaignStatus.COMPLETED) {
+            if (newStatus != CampaignStatus.COMPLETED && newStatus != CampaignStatus.ARCHIVED) {
+                throw new InvalidStateTransitionException(
+                        String.format("Cannot transition campaign status from %s to %s", currentStatus, newStatus));
+            }
+        } else if (currentStatus == CampaignStatus.ARCHIVED) {
+            if (newStatus != CampaignStatus.ARCHIVED) {
+                throw new InvalidStateTransitionException(
+                        String.format("Cannot transition campaign status from %s to %s", currentStatus, newStatus));
+            }
+        }
+    }
+
     private CampaignResponse mapToResponse(CampaignEntity entity) {
         return new CampaignResponse(
                 entity.getId(),
@@ -100,6 +154,8 @@ public class CampaignService {
                 entity.getChannel(),
                 entity.getExternalCampaignId(),
                 entity.getStatus(),
+                entity.getStartDate(),
+                entity.getEndDate(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );

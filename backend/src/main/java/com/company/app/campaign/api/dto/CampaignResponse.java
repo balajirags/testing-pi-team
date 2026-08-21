@@ -16,6 +16,8 @@ public record CampaignResponse(
         String channel,
         String externalCampaignId,
         CampaignStatus status,
+        Instant startDate,
+        Instant endDate,
         Instant createdAt,
         Instant updatedAt
 ) {

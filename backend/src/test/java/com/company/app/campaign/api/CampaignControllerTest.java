@@ -2,9 +2,11 @@ package com.company.app.campaign.api;
 
 import com.company.app.campaign.api.dto.CampaignResponse;
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
+import com.company.app.campaign.api.dto.UpdateCampaignRequest;
 import com.company.app.campaign.domain.CampaignStatus;
 import com.company.app.campaign.exception.DuplicateResourceException;
 import com.company.app.campaign.exception.GlobalExceptionHandler;
+import com.company.app.campaign.exception.InvalidStateTransitionException;
 import com.company.app.campaign.exception.ResourceNotFoundException;
 import com.company.app.campaign.service.CampaignService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -33,6 +35,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -77,6 +80,8 @@ class CampaignControllerTest {
                 "META",
                 "meta_12345",
                 CampaignStatus.DRAFT,
+                null,
+                null,
                 now,
                 now
         );
@@ -188,6 +193,8 @@ class CampaignControllerTest {
                 "GOOGLE",
                 "goog_123",
                 CampaignStatus.DRAFT,
+                null,
+                null,
                 now,
                 now
         );
@@ -222,6 +229,8 @@ class CampaignControllerTest {
                 "GOOGLE",
                 "goog_123",
                 CampaignStatus.DRAFT,
+                null,
+                null,
                 now,
                 now
         );
@@ -245,5 +254,95 @@ class CampaignControllerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.title", is("Resource Not Found")))
                 .andExpect(jsonPath("$.detail", containsString("Campaign not found")));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/campaigns/{id} - Happy path returns 200 OK with updated campaign")
+    void updateCampaign_HappyPath() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+        UUID brandId = UUID.randomUUID();
+        UUID adAccountId = UUID.randomUUID();
+        Instant now = Instant.now();
+
+        UpdateCampaignRequest request = new UpdateCampaignRequest(
+                "Updated Name",
+                new BigDecimal("10000.00"),
+                "USD",
+                CampaignStatus.ACTIVE,
+                null,
+                null
+        );
+
+        CampaignResponse response = new CampaignResponse(
+                campaignId,
+                brandId,
+                adAccountId,
+                "Updated Name",
+                new BigDecimal("10000.00"),
+                "USD",
+                "GOOGLE",
+                "goog_123",
+                CampaignStatus.ACTIVE,
+                null,
+                null,
+                now,
+                now
+        );
+
+        when(campaignService.updateCampaign(eq(campaignId), any(UpdateCampaignRequest.class))).thenReturn(response);
+
+        mockMvc.perform(put("/api/v1/campaigns/{id}", campaignId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id", is(campaignId.toString())))
+                .andExpect(jsonPath("$.name", is("Updated Name")))
+                .andExpect(jsonPath("$.budget", is(10000.00)))
+                .andExpect(jsonPath("$.status", is("ACTIVE")));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/campaigns/{id} - Negative budget returns 400 Bad Request ProblemDetail")
+    void updateCampaign_NegativeBudget() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+        UpdateCampaignRequest request = new UpdateCampaignRequest(
+                "Updated Name",
+                new BigDecimal("-500.00"),
+                "USD",
+                CampaignStatus.ACTIVE,
+                null,
+                null
+        );
+
+        mockMvc.perform(put("/api/v1/campaigns/{id}", campaignId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title", is("Invalid Request Content")))
+                .andExpect(jsonPath("$.invalidParams.budget", is("budget must be non-negative")));
+    }
+
+    @Test
+    @DisplayName("PUT /api/v1/campaigns/{id} - Invalid state transition returns 400 Bad Request ProblemDetail")
+    void updateCampaign_InvalidStateTransition() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+        UpdateCampaignRequest request = new UpdateCampaignRequest(
+                null,
+                null,
+                null,
+                CampaignStatus.DRAFT,
+                null,
+                null
+        );
+
+        when(campaignService.updateCampaign(eq(campaignId), any(UpdateCampaignRequest.class)))
+                .thenThrow(new InvalidStateTransitionException("Cannot transition campaign status from COMPLETED to DRAFT"));
+
+        mockMvc.perform(put("/api/v1/campaigns/{id}", campaignId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.title", is("Invalid Request State or Argument")))
+                .andExpect(jsonPath("$.detail", containsString("Cannot transition campaign status from COMPLETED to DRAFT")));
     }
 }

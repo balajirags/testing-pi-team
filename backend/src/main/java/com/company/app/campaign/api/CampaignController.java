@@ -2,6 +2,7 @@ package com.company.app.campaign.api;
 
 import com.company.app.campaign.api.dto.CampaignResponse;
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
+import com.company.app.campaign.api.dto.UpdateCampaignRequest;
 import com.company.app.campaign.service.CampaignService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -13,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -45,6 +47,14 @@ public class CampaignController {
     @GetMapping("/{id}")
     public ResponseEntity<CampaignResponse> getCampaignById(@PathVariable UUID id) {
         CampaignResponse response = campaignService.getCampaignById(id);
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<CampaignResponse> updateCampaign(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateCampaignRequest request) {
+        CampaignResponse response = campaignService.updateCampaign(id, request);
         return ResponseEntity.ok(response);
     }
 }
