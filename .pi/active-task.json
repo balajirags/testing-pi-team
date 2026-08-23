@@ -1,8 +1,8 @@
 {
   "activeIssueId": "2",
-  "status": "qa-verifying",
-  "updatedBy": "developer",
-  "notes": "Implemented GET /api/v1/campaigns (list with brandId, channel, and status filters + pagination) and GET /api/v1/campaigns/{id} (get by id with 404 error handling) with full test coverage.",
-  "reworkCount": 0,
-  "timestamp": "2026-08-23T18:37:00.000Z"
+  "status": "dev-rework",
+  "updatedBy": "/Users/gbalaji/projects/personal/testing-pi-team",
+  "notes": "QA Verification FAILED on Scenario 1 (List campaigns happy path). GET /api/v1/campaigns returns HTTP 500 Internal Server Error (IllegalArgumentException: No enum constant com.company.app.campaign.domain.CampaignStatus.COMPLETED) when querying campaigns from the live database because CampaignStatus enum in CampaignStatus.java is missing the COMPLETED value. Status updated to dev-rework.",
+  "reworkCount": 1,
+  "timestamp": "2026-08-23T13:08:19.619Z"
 }

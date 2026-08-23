@@ -1,0 +1,37 @@
+{
+  "name": "devsquad",
+  "version": "1.0.0",
+  "description": "DevSquad AI — Autonomous Multi-Agent Engineering Squad (BA, Dev, QA, Reviewer in tmux)",
+  "main": "dist/index.js",
+  "bin": {
+    "devsquad": "./bin/devsquad.js"
+  },
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "pi": {
+    "extensions": [
+      "./.pi/extensions"
+    ],
+    "skills": [
+      "./.pi/skills"
+    ],
+    "prompts": [
+      "./.pi/prompts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
