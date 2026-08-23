@@ -29,7 +29,10 @@ This repository is powered by an AI-native 5-agent team operating concurrently i
 
 ## 🤖 Orchestrator Control & Task Allocation
 
-Master Orchestrator (Pane 0) is the single entry point for human instructions. Upon session launch via `/team-dev`, Orchestrator displays a menu with 4 core choices:
+Master Orchestrator (Pane 0) is the single entry point for human instructions.
+🚫 **STRICT DELEGATION RULE**: Master Orchestrator NEVER creates story files, BRDs/PRDs, GitHub Issues, or code files itself. Orchestrator delegates ALL requirement grooming and story creation to the **BA agent (`ba`)** in Pane 1 via `send_agent_message`.
+
+Upon session launch via `/team-dev`, Orchestrator displays a menu with 4 core choices:
 
 1. **Implement a BRD / PRD**:
    - Human request: *"Proceed with docs/brd/campaigns.md"* or *"Groom the PRD"*
