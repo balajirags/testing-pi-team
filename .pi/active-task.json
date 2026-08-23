@@ -1,0 +1,8 @@
+{
+  "activeIssueId": "2",
+  "status": "qa-verifying",
+  "updatedBy": "developer",
+  "notes": "Implemented GET /api/v1/campaigns (list with brandId, channel, and status filters + pagination) and GET /api/v1/campaigns/{id} (get by id with 404 error handling) with full test coverage.",
+  "reworkCount": 0,
+  "timestamp": "2026-08-23T18:37:00.000Z"
+}
