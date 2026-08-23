@@ -1,8 +1,8 @@
 {
-  "activeIssueId": "5",
+  "activeIssueId": "6",
   "status": "done",
   "updatedBy": "reviewer",
-  "notes": "Code Review APPROVED for Issue #5 (POST /api/v1/campaigns/import). Merged feature/issue-5 into main. All P1/P2 standards verified, unit tests and integration tests passing.",
+  "notes": "Code Review APPROVED for Issue #6 (Campaigns Dashboard UI). Merged feature/issue-6 into main. All P1/P2 standards verified, Vitest unit tests and Vite build passing.",
   "reworkCount": 0,
-  "timestamp": "2026-08-23T19:00:00.000Z"
+  "timestamp": "2026-08-23T19:05:00.000Z"
 }
