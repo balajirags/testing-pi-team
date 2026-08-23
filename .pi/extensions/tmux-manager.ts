@@ -53,20 +53,20 @@ export class TmuxManager {
       `tmux split-window -v -t ${devPane} -P -F "#{pane_id}" "pi -a reviewer; exec bash"`
     ).toString().trim();
 
-    // Configure Pane Titles & Border Styling (Prevent title override)
+    // Configure Pane Persona Titles & Border Styling (using custom @persona property immune to terminal OSC title sequences)
     try {
       execSync(`tmux set-option -t ${this.sessionName} allow-rename off`);
       execSync(`tmux set-window-option -t ${this.sessionName} automatic-rename off`);
       execSync(`tmux set-option -t ${this.sessionName} pane-border-status top`);
       execSync(`tmux set-option -t ${this.sessionName} pane-border-style "fg=blue"`);
       execSync(`tmux set-option -t ${this.sessionName} pane-active-border-style "fg=green,bold"`);
-      execSync(`tmux set-option -t ${this.sessionName} pane-border-format "#[fg=black,bg=cyan,bold] #{pane_title} #[default]"`);
+      execSync(`tmux set-option -t ${this.sessionName} pane-border-format "#[fg=black,bg=cyan,bold] #{@persona} #[default]"`);
 
-      execSync(`tmux select-pane -t ${orchestratorPane} -T "🤖 MASTER ORCHESTRATOR (Pane 0)"`);
-      execSync(`tmux select-pane -t ${baPane} -T "📋 BUSINESS ANALYST - BA (Pane 1)"`);
-      execSync(`tmux select-pane -t ${devPane} -T "💻 FULLSTACK DEVELOPER - DEV (Pane 2)"`);
-      execSync(`tmux select-pane -t ${qaPane} -T "🧪 QUALITY ANALYST - QA (Pane 3)"`);
-      execSync(`tmux select-pane -t ${reviewerPane} -T "🔍 CODE REVIEWER - REVIEWER (Pane 4)"`);
+      execSync(`tmux set-option -p -t ${orchestratorPane} @persona "🤖 MASTER ORCHESTRATOR (Pane 0)"`);
+      execSync(`tmux set-option -p -t ${baPane} @persona "📋 BUSINESS ANALYST - BA (Pane 1)"`);
+      execSync(`tmux set-option -p -t ${devPane} @persona "💻 FULLSTACK DEVELOPER - DEV (Pane 2)"`);
+      execSync(`tmux set-option -p -t ${qaPane} @persona "🧪 QUALITY ANALYST - QA (Pane 3)"`);
+      execSync(`tmux set-option -p -t ${reviewerPane} @persona "🔍 CODE REVIEWER - REVIEWER (Pane 4)"`);
 
       // Resize Orchestrator top pane to 25% height
       execSync(`tmux resize-pane -t ${orchestratorPane} -y 25%`);
@@ -109,19 +109,19 @@ export class TmuxManager {
 
       if (!livePanes.includes(currentPanes.ba)) {
         updated.ba = execSync(`tmux split-window -v -t ${currentPanes.orchestrator} -P -F "#{pane_id}" "pi -a ba; exec bash"`).toString().trim();
-        execSync(`tmux select-pane -t ${updated.ba} -T "📋 BUSINESS ANALYST - BA (Pane 1)"`);
+        execSync(`tmux set-option -p -t ${updated.ba} @persona "📋 BUSINESS ANALYST - BA (Pane 1)"`);
       }
       if (!livePanes.includes(currentPanes.developer)) {
         updated.developer = execSync(`tmux split-window -h -t ${updated.ba} -P -F "#{pane_id}" "pi -a developer; exec bash"`).toString().trim();
-        execSync(`tmux select-pane -t ${updated.developer} -T "💻 FULLSTACK DEVELOPER - DEV (Pane 2)"`);
+        execSync(`tmux set-option -p -t ${updated.developer} @persona "💻 FULLSTACK DEVELOPER - DEV (Pane 2)"`);
       }
       if (!livePanes.includes(currentPanes.qa)) {
         updated.qa = execSync(`tmux split-window -v -t ${updated.ba} -P -F "#{pane_id}" "pi -a qa; exec bash"`).toString().trim();
-        execSync(`tmux select-pane -t ${updated.qa} -T "🧪 QUALITY ANALYST - QA (Pane 3)"`);
+        execSync(`tmux set-option -p -t ${updated.qa} @persona "🧪 QUALITY ANALYST - QA (Pane 3)"`);
       }
       if (!livePanes.includes(currentPanes.reviewer)) {
         updated.reviewer = execSync(`tmux split-window -v -t ${updated.developer} -P -F "#{pane_id}" "pi -a reviewer; exec bash"`).toString().trim();
-        execSync(`tmux select-pane -t ${updated.reviewer} -T "🔍 CODE REVIEWER - REVIEWER (Pane 4)"`);
+        execSync(`tmux set-option -p -t ${updated.reviewer} @persona "🔍 CODE REVIEWER - REVIEWER (Pane 4)"`);
       }
 
       return updated;
