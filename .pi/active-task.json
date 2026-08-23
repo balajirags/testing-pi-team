@@ -1,8 +1,8 @@
 {
   "activeIssueId": "3",
   "status": "qa-verifying",
-  "updatedBy": "developer",
-  "notes": "Implemented PUT /api/v1/campaigns/{id} endpoint (update name, budget, currency, status, dates) with validation and state transition checks.",
+  "updatedBy": "/Users/gbalaji/projects/personal/testing-pi-team",
+  "notes": "Implemented PUT /api/v1/campaigns/{id} (update name, budget, currency, dates, and status with state transition validation) with unit tests and Bruno tests. Staged, committed, and pushed to feature/issue-3.",
   "reworkCount": 0,
-  "timestamp": "2026-08-23T18:43:00.000Z"
+  "timestamp": "2026-08-23T13:13:15.840Z"
 }
