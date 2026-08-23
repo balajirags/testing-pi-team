@@ -1,0 +1,8 @@
+{
+  "activeIssueId": "4",
+  "status": "qa-verifying",
+  "updatedBy": "developer",
+  "notes": "Implemented DELETE /api/v1/campaigns/{id} endpoint (soft-delete sets status to ARCHIVED, returns 204 No Content, 404 on missing campaign) with tests.",
+  "reworkCount": 0,
+  "timestamp": "2026-08-23T18:47:00.000Z"
+}
