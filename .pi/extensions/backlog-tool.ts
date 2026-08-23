@@ -229,6 +229,21 @@ export function registerBacklogTool(pi: ExtensionAPI) {
         const formatted = `[DIRECT MESSAGE to ${params.targetRole.toUpperCase()}]: ${params.message}`;
         execSync(`tmux send-keys -t ${targetPane} "${formatted.replace(/"/g, '\\"')}" Enter`, { stdio: "ignore" });
 
+        // Log direct message to .pi/events.jsonl
+        try {
+          const eventsPath = path.join(process.cwd(), ".pi", "events.jsonl");
+          const msgEvent = {
+            eventId: `evt_${Date.now()}`,
+            type: "direct_message",
+            targetRole: params.targetRole,
+            message: params.message,
+            timestamp: new Date().toISOString()
+          };
+          fs.appendFileSync(eventsPath, JSON.stringify(msgEvent) + "\n", "utf-8");
+        } catch {
+          // Ignore
+        }
+
         return {
           content: [{ type: "text", text: `Sent direct message to ${params.targetRole.toUpperCase()} pane (${targetPane})${shouldClear ? " [context cleared]" : ""}.` }],
           details: { success: true, targetPane, message: params.message, clearedContext: shouldClear }
@@ -237,6 +252,48 @@ export function registerBacklogTool(pi: ExtensionAPI) {
         return {
           content: [{ type: "text", text: `Error sending message: ${err.message}` }],
           details: { success: false, error: err.message }
+        };
+      }
+    }
+  });
+
+  // Tool 3: get_team_events (Persistent Event Bus Inspection)
+  pi.registerTool({
+    name: "get_team_events",
+    label: "Get Team Events",
+    description: "Read recent status update events and inter-agent messages from the persistent event log (.pi/events.jsonl)",
+    parameters: Type.Object({
+      limit: Type.Optional(Type.Number({ description: "Number of recent events to return (default: 10)" }))
+    }),
+    async execute(toolCallId, params, signal, onUpdate, ctx) {
+      const eventsPath = path.join(process.cwd(), ".pi", "events.jsonl");
+      if (!fs.existsSync(eventsPath)) {
+        return {
+          content: [{ type: "text", text: "No events logged in .pi/events.jsonl yet." }],
+          details: { events: [] }
+        };
+      }
+
+      try {
+        const lines = fs.readFileSync(eventsPath, "utf-8").trim().split("\n").filter(Boolean);
+        const limit = params.limit || 10;
+        const recentLines = lines.slice(-limit);
+        const events = recentLines.map(line => {
+          try {
+            return JSON.parse(line);
+          } catch {
+            return { raw: line };
+          }
+        });
+
+        return {
+          content: [{ type: "text", text: `Retrieved ${events.length} recent team events:\n` + JSON.stringify(events, null, 2) }],
+          details: { events }
+        };
+      } catch (err: any) {
+        return {
+          content: [{ type: "text", text: `Error reading events: ${err.message}` }],
+          details: { events: [], error: err.message }
         };
       }
     }
