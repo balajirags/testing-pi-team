@@ -1,7 +1,8 @@
 {
   "activeIssueId": "1",
-  "status": "ready-for-dev",
-  "updatedBy": "/Users/gbalaji/projects/personal/testing-pi-team",
-  "notes": "Groomed and verified Story #1 ([Campaigns Management] Create Campaign API). Sliced into atomic unit with Gherkin Acceptance Criteria covering POST /api/v1/campaigns endpoint. Ready for implementation.",
-  "timestamp": "2026-08-23T07:24:06.351Z"
+  "status": "qa-verifying",
+  "updatedBy": "developer",
+  "notes": "Implemented POST /api/v1/campaigns endpoint for Create Campaign with JPA entities, Flyway migrations, unit/integration tests, and Bruno API test suite.",
+  "reworkCount": 0,
+  "timestamp": "2026-08-23T18:29:00.000Z"
 }
