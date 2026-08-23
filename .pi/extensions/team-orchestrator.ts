@@ -84,7 +84,7 @@ export default function (pi: ExtensionAPI) {
       `Master Orchestrator online [--mode=${config.mode}, --layout=${config.layout}]! Print the welcome banner and options (1. Implement BRD/PRD, 2. Pick a specific Story/Issue, 3. Random Implementation, 4. Custom Task/Bug Fix). DO NOT call send_agent_message or start any work automatically. STOP IMMEDIATELY and wait for the human user in Pane 0 to enter their instruction.`
     );
 
-    ctx.ui.notify(`DevSquad setup complete in tmux session 'pi-team' [--mode=${config.mode}, --layout=${config.layout}]. Attach with: tmux attach -t pi-team`, "info");
+    ctx.ui.notify(`DevSquad setup complete in tmux session 'devsquad-workspace' [--mode=${config.mode}, --layout=${config.layout}]. Attach with: tmux attach -t devsquad-workspace`, "info");
   };
 
   // Handler for session resume
@@ -126,40 +126,69 @@ export default function (pi: ExtensionAPI) {
 
     tmux.sendPromptToPane(panes.orchestrator, resumePrompt);
 
-    ctx.ui.notify(`DevSquad session resumed in tmux 'pi-team' [Issue #${activeIssueId || 'None'}, Status: ${activeStatus}]. Attach with: tmux attach -t pi-team`, "info");
+    ctx.ui.notify(`DevSquad session resumed in tmux 'devsquad-workspace' [Issue #${activeIssueId || 'None'}, Status: ${activeStatus}]. Attach with: tmux attach -t devsquad-workspace`, "info");
   };
 
-  // Command 1: /team-start
-  pi.registerCommand("team-start", {
-    description: "Start a fresh multi-agent team session in tmux based on .pi/team-config.json",
+  // Command 1: /devsquad-start
+  pi.registerCommand("devsquad-start", {
+    description: "Start a fresh DevSquad AI session in tmux based on .pi/team-config.json",
     handler: async (_args, ctx) => {
       await handleTeamStart(ctx);
     }
   });
 
-  // Command 2: /team-resume
-  pi.registerCommand("team-resume", {
-    description: "Resume an active multi-agent team session from .pi/active-task.json log",
+  // Command 2: /devsquad-resume
+  pi.registerCommand("devsquad-resume", {
+    description: "Resume active DevSquad AI session from .pi/active-task.json log",
     handler: async (_args, ctx) => {
       await handleTeamResume(ctx);
     }
   });
 
-  // Backward compatibility alias: /team-dev -> /team-start
-  pi.registerCommand("team-dev", {
-    description: "Launch multi-agent team workflow (alias to /team-start)",
-    handler: async (_args, ctx) => {
-      await handleTeamStart(ctx);
-    }
-  });
-
-  // Command 3: /team-recover
-  pi.registerCommand("team-recover", {
-    description: "Recover any closed agent pane or window in the active tmux workspace",
+  // Command 3: /devsquad-recover
+  pi.registerCommand("devsquad-recover", {
+    description: "Recover any closed agent pane or window in the active DevSquad workspace",
     handler: async (_args, ctx) => {
       const configPath = path.join(process.cwd(), ".pi", "team-config.json");
       if (!fs.existsSync(configPath)) {
-        ctx.ui.notify("Error: team-config.json not found. Run /team-start first.", "error");
+        ctx.ui.notify("Error: team-config.json not found. Run /devsquad-start first.", "error");
+        return;
+      }
+
+      try {
+        const config: TeamConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+        const recoveredPanes = tmux.recoverMissingPanes(config.panes);
+        config.panes = recoveredPanes;
+        saveConfig(config);
+        ctx.ui.notify("Pane recovery check complete!", "info");
+      } catch (err: any) {
+        ctx.ui.notify(`Recovery failed: ${err.message}`, "error");
+      }
+    }
+  });
+
+  // Aliases for backward compatibility
+  pi.registerCommand("team-start", {
+    description: "Start fresh team session (alias to /devsquad-start)",
+    handler: async (_args, ctx) => { await handleTeamStart(ctx); }
+  });
+
+  pi.registerCommand("team-resume", {
+    description: "Resume team session (alias to /devsquad-resume)",
+    handler: async (_args, ctx) => { await handleTeamResume(ctx); }
+  });
+
+  pi.registerCommand("team-dev", {
+    description: "Launch team workflow (alias to /devsquad-start)",
+    handler: async (_args, ctx) => { await handleTeamStart(ctx); }
+  });
+
+  pi.registerCommand("team-recover", {
+    description: "Recover team workspace (alias to /devsquad-recover)",
+    handler: async (_args, ctx) => {
+      const configPath = path.join(process.cwd(), ".pi", "team-config.json");
+      if (!fs.existsSync(configPath)) {
+        ctx.ui.notify("Error: team-config.json not found. Run /devsquad-start first.", "error");
         return;
       }
 

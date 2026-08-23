@@ -10,7 +10,7 @@
 
 #### Step 1: Install `devsquad` globally
 ```bash
-npm install -g pi-agent-team
+npm install -g devsquad
 # Or from local package link:
 npm link
 ```

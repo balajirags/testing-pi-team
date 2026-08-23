@@ -9,7 +9,7 @@ export interface TmuxPaneMap {
 }
 
 export class TmuxManager {
-  private sessionName = "pi-team";
+  private sessionName = "devsquad-workspace";
 
   public isTmuxAvailable(): boolean {
     try {
@@ -72,14 +72,17 @@ export class TmuxManager {
       execSync(`tmux set-window-option -g pane-border-status top`);
       execSync(`tmux set-window-option -g pane-border-format "#[fg=black,bg=cyan,bold] #{@persona} #[default]"`);
 
-      execSync(`tmux set-option -p -t ${orchestratorPane} @persona "🤖 MASTER ORCHESTRATOR (Pane 0)"`);
-      execSync(`tmux set-option -p -t ${baPane} @persona "📋 BUSINESS ANALYST - BA (Pane 1)"`);
-      execSync(`tmux set-option -p -t ${devPane} @persona "💻 FULLSTACK DEVELOPER - DEV (Pane 2)"`);
-      execSync(`tmux set-option -p -t ${qaPane} @persona "🧪 QUALITY ANALYST - QA (Pane 3)"`);
-      execSync(`tmux set-option -p -t ${reviewerPane} @persona "🔍 CODE REVIEWER - REVIEWER (Pane 4)"`);
+      execSync(`tmux set-option -p -t ${orchestratorPane} @persona "[ DEVSQUAD :: MASTER ORCHESTRATOR ]"`);
+      execSync(`tmux set-option -p -t ${baPane} @persona "[ DEVSQUAD :: BUSINESS ANALYST (BA) ]"`);
+      execSync(`tmux set-option -p -t ${devPane} @persona "[ DEVSQUAD :: DEVELOPER (DEV) ]"`);
+      execSync(`tmux set-option -p -t ${qaPane} @persona "[ DEVSQUAD :: QUALITY ANALYST (QA) ]"`);
+      execSync(`tmux set-option -p -t ${reviewerPane} @persona "[ DEVSQUAD :: CODE REVIEWER (REVIEWER) ]"`);
 
       // Resize Orchestrator top pane to 25% height
       execSync(`tmux resize-pane -t ${orchestratorPane} -y 25%`);
+
+      // Bind instant Alt navigation shortcuts and status bar ticker
+      this.configureErgonomics();
     } catch {
       // Non-fatal if styling fails
     }
@@ -140,6 +143,33 @@ export class TmuxManager {
       qa: qaPane,
       reviewer: reviewerPane
     };
+  }
+
+  private configureErgonomics(): void {
+    try {
+      // Bottom Status Ticker Bar
+      execSync(`tmux set-option -t ${this.sessionName} status-style "bg=black,fg=cyan"`);
+      execSync(`tmux set-option -t ${this.sessionName} status-left "#[fg=black,bg=green,bold] 🚀 DEVSQUAD AI #[default] "`);
+      execSync(`tmux set-option -t ${this.sessionName} status-right "#[fg=cyan,bold] %Y-%m-%d %H:%M #[default]"`);
+
+      // Alt + Arrow keys for instant pane navigation (no Ctrl+b required)
+      execSync(`tmux bind-key -n M-Up select-pane -U 2>/dev/null || true`);
+      execSync(`tmux bind-key -n M-Down select-pane -D 2>/dev/null || true`);
+      execSync(`tmux bind-key -n M-Left select-pane -L 2>/dev/null || true`);
+      execSync(`tmux bind-key -n M-Right select-pane -R 2>/dev/null || true`);
+
+      // Alt + 0..4 for direct pane jump
+      execSync(`tmux bind-key -n M-0 select-pane -t :.0 2>/dev/null || true`);
+      execSync(`tmux bind-key -n M-1 select-pane -t :.1 2>/dev/null || true`);
+      execSync(`tmux bind-key -n M-2 select-pane -t :.2 2>/dev/null || true`);
+      execSync(`tmux bind-key -n M-3 select-pane -t :.3 2>/dev/null || true`);
+      execSync(`tmux bind-key -n M-4 select-pane -t :.4 2>/dev/null || true`);
+
+      // Alt + z for instant full-screen zoom toggle
+      execSync(`tmux bind-key -n M-z resize-pane -Z 2>/dev/null || true`);
+    } catch {
+      // Non-fatal
+    }
   }
 
   // Create Window 1 for running the Application Server isolated

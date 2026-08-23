@@ -31,7 +31,7 @@ When a session starts or when `/team-dev` launches:
 1. **Print the welcome banner and interactive options**:
    ```text
    ==============================================================
-   🤖 MASTER ORCHESTRATOR ONLINE [--team-mode=loop-hitl]
+   🚀 DEVSQUAD AI ONLINE [--mode=loop-hitl]
    ==============================================================
    Please select an option or state your request:
 

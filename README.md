@@ -1,4 +1,4 @@
-# DevSquad AI — Multi-Agent Software Development Team (`pi-agent-team`)
+# DevSquad AI — Autonomous Multi-Agent Engineering Squad (`devsquad`)
 
 **DevSquad AI** turns Pi Agent into an AI-native 5-agent software development squad operating concurrently in a tmux workspace (either 5 split panes in 1 window or 5 full-screen windows in the same session):
 
@@ -116,42 +116,30 @@ Before running DevSquad AI, ensure you have installed:
 
 ## 🚀 Quickstart Guide
 
-### Step 1: Copy `.pi/`, `Agent.md`, and Templates
-Copy the `.pi/` folder, `Agent.md`, and `docs/templates/` into your project root:
-
+### Step 1: Install DevSquad AI
 ```bash
-cp -r /path/to/pi-team/.pi .
-cp /path/to/pi-team/Agent.md .
-cp -r /path/to/pi-team/docs/templates docs/templates
+npm install -g devsquad
 ```
 
-### Step 2: Configure `project-context.md` and `.pi/team-config.json`
-Set your repository boundaries, build/test commands, and delivery tracker in `project-context.md`:
+### Step 2: Initialize in Any Repository
+Navigate to your project repository and run `devsquad init`:
 
 ```bash
-cp docs/templates/project-context.template.md project-context.md
+cd ~/projects/my-company-app
+devsquad init
 ```
 
-Set your team mode and layout preference in `.pi/team-config.json`:
-```json
-{
-  "mode": "loop-hitl",
-  "layout": "panes"
-}
-```
+### Step 3: Configure `project-context.md` and `.pi/team-config.json`
+Set your repository boundaries, build/test commands, and delivery tracker in `project-context.md` and `.pi/team-config.json`.
 
-### Step 3: Launch the Agent Squad
-Run `/team-start` inside Pi:
-
+### Step 4: Launch DevSquad AI
 ```bash
-pi "/team-start"
+devsquad start
 ```
 
-### Step 4: Attach to the Tmux Workspace
-Open a separate terminal window and attach to the tmux session:
-
+### Step 5: Attach to the Tmux Workspace
 ```bash
-tmux attach -t pi-team
+devsquad attach
 ```
 
 #### Tmux 5-Pane Split Layout (`"layout": "panes"`):
