@@ -147,26 +147,10 @@ export class TmuxManager {
 
   private configureErgonomics(): void {
     try {
-      // Bottom Status Ticker Bar
+      // Bottom Status Ticker Bar (Scoped 100% to devsquad-workspace session)
       execSync(`tmux set-option -t ${this.sessionName} status-style "bg=black,fg=cyan"`);
       execSync(`tmux set-option -t ${this.sessionName} status-left "#[fg=black,bg=green,bold] 🚀 DEVSQUAD AI #[default] "`);
       execSync(`tmux set-option -t ${this.sessionName} status-right "#[fg=cyan,bold] %Y-%m-%d %H:%M #[default]"`);
-
-      // Alt + Arrow keys for instant pane navigation (no Ctrl+b required)
-      execSync(`tmux bind-key -n M-Up select-pane -U 2>/dev/null || true`);
-      execSync(`tmux bind-key -n M-Down select-pane -D 2>/dev/null || true`);
-      execSync(`tmux bind-key -n M-Left select-pane -L 2>/dev/null || true`);
-      execSync(`tmux bind-key -n M-Right select-pane -R 2>/dev/null || true`);
-
-      // Alt + 0..4 for direct pane jump
-      execSync(`tmux bind-key -n M-0 select-pane -t :.0 2>/dev/null || true`);
-      execSync(`tmux bind-key -n M-1 select-pane -t :.1 2>/dev/null || true`);
-      execSync(`tmux bind-key -n M-2 select-pane -t :.2 2>/dev/null || true`);
-      execSync(`tmux bind-key -n M-3 select-pane -t :.3 2>/dev/null || true`);
-      execSync(`tmux bind-key -n M-4 select-pane -t :.4 2>/dev/null || true`);
-
-      // Alt + z for instant full-screen zoom toggle
-      execSync(`tmux bind-key -n M-z resize-pane -Z 2>/dev/null || true`);
     } catch {
       // Non-fatal
     }
