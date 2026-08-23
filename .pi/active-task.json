@@ -1,8 +1,8 @@
 {
   "activeIssueId": "1",
-  "status": "qa-verifying",
-  "updatedBy": "/Users/gbalaji/projects/personal/testing-pi-team",
-  "notes": "Implemented POST /api/v1/campaigns endpoint for Create Campaign with JPA persistence, validations, duplicate mapping error handling (HTTP 409), unit tests, integration tests, and Bruno API test suite. Staged, committed, and pushed to feature/issue-1-create-campaign.",
+  "status": "code-review",
+  "updatedBy": "reviewer",
+  "notes": "Code Review in progress for Issue #1 (POST /api/v1/campaigns).",
   "reworkCount": 0,
-  "timestamp": "2026-08-23T12:59:06.677Z"
+  "timestamp": "2026-08-23T18:35:00.000Z"
 }
