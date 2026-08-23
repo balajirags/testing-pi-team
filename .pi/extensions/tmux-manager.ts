@@ -1,11 +1,11 @@
 import { execSync } from "child_process";
 
 export interface TmuxPaneMap {
-  orchestrator: string; // Pane 0
-  ba: string;           // Pane 1
-  developer: string;    // Pane 2
-  qa: string;           // Pane 3
-  reviewer: string;     // Pane 4
+  orchestrator: string; // Pane ID or Window target
+  ba: string;           // Pane ID or Window target
+  developer: string;    // Pane ID or Window target
+  qa: string;           // Pane ID or Window target
+  reviewer: string;     // Pane ID or Window target
 }
 
 export class TmuxManager {
@@ -18,6 +18,13 @@ export class TmuxManager {
     } catch {
       return false;
     }
+  }
+
+  public setupLayout(layout: "panes" | "windows" = "panes"): TmuxPaneMap {
+    if (layout === "windows") {
+      return this.setup5WindowLayout();
+    }
+    return this.setup5PaneLayout();
   }
 
   public setup5PaneLayout(): TmuxPaneMap {
@@ -53,7 +60,7 @@ export class TmuxManager {
       `tmux split-window -v -t ${devPane} -P -F "#{pane_id}" "pi -a reviewer; exec bash"`
     ).toString().trim();
 
-    // Configure Pane Persona Titles & Border Styling (using window options -w and custom @persona property immune to terminal OSC title sequences)
+    // Configure Pane Persona Titles & Border Styling
     try {
       execSync(`tmux set-option -w -t ${this.sessionName} allow-rename off`);
       execSync(`tmux set-window-option -t ${this.sessionName} automatic-rename off`);
@@ -62,7 +69,6 @@ export class TmuxManager {
       execSync(`tmux set-window-option -t ${this.sessionName} pane-active-border-style "fg=green,bold"`);
       execSync(`tmux set-window-option -t ${this.sessionName} pane-border-format "#[fg=black,bg=cyan,bold] #{@persona} #[default]"`);
 
-      // Set global window option defaults so recovered panes and new windows also show headers
       execSync(`tmux set-window-option -g pane-border-status top`);
       execSync(`tmux set-window-option -g pane-border-format "#[fg=black,bg=cyan,bold] #{@persona} #[default]"`);
 
@@ -76,6 +82,55 @@ export class TmuxManager {
       execSync(`tmux resize-pane -t ${orchestratorPane} -y 25%`);
     } catch {
       // Non-fatal if styling fails
+    }
+
+    return {
+      orchestrator: orchestratorPane,
+      ba: baPane,
+      developer: devPane,
+      qa: qaPane,
+      reviewer: reviewerPane
+    };
+  }
+
+  public setup5WindowLayout(): TmuxPaneMap {
+    // Kill existing session if present
+    try {
+      execSync(`tmux kill-session -t ${this.sessionName} 2>/dev/null`, { stdio: "ignore" });
+    } catch {
+      // Ignore
+    }
+
+    // Window 0: orchestrator
+    const orchestratorPane = execSync(
+      `tmux new-session -d -s ${this.sessionName} -n orchestrator -P -F "#{pane_id}" "pi -a orchestrator; exec bash"`
+    ).toString().trim();
+
+    // Window 1: ba
+    const baPane = execSync(
+      `tmux new-window -t ${this.sessionName} -n ba -P -F "#{pane_id}" "pi -a ba; exec bash"`
+    ).toString().trim();
+
+    // Window 2: developer
+    const devPane = execSync(
+      `tmux new-window -t ${this.sessionName} -n developer -P -F "#{pane_id}" "pi -a developer; exec bash"`
+    ).toString().trim();
+
+    // Window 3: qa
+    const qaPane = execSync(
+      `tmux new-window -t ${this.sessionName} -n qa -P -F "#{pane_id}" "pi -a qa; exec bash"`
+    ).toString().trim();
+
+    // Window 4: reviewer
+    const reviewerPane = execSync(
+      `tmux new-window -t ${this.sessionName} -n reviewer -P -F "#{pane_id}" "pi -a reviewer; exec bash"`
+    ).toString().trim();
+
+    // Select window 0 (orchestrator)
+    try {
+      execSync(`tmux select-window -t ${this.sessionName}:0`);
+    } catch {
+      // Ignore
     }
 
     return {
@@ -108,7 +163,7 @@ export class TmuxManager {
   // Verify and recover any closed pane
   public recoverMissingPanes(currentPanes: TmuxPaneMap): TmuxPaneMap {
     try {
-      const livePanes = execSync(`tmux list-panes -t ${this.sessionName}:0 -F "#{pane_id}"`).toString();
+      const livePanes = execSync(`tmux list-panes -a -t ${this.sessionName} -F "#{pane_id}"`).toString();
       const updated = { ...currentPanes };
 
       if (!livePanes.includes(currentPanes.ba)) {
