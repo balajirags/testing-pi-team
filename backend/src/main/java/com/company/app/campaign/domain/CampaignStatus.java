@@ -4,5 +4,6 @@ public enum CampaignStatus {
     DRAFT,
     ACTIVE,
     PAUSED,
+    COMPLETED,
     ARCHIVED
 }
