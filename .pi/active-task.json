@@ -1,0 +1,8 @@
+{
+  "activeIssueId": "5",
+  "status": "qa-verifying",
+  "updatedBy": "developer",
+  "notes": "Implemented POST /api/v1/campaigns/import CSV batch upload endpoint with per-row validation and summary error reporting.",
+  "reworkCount": 0,
+  "timestamp": "2026-08-23T18:50:00.000Z"
+}
