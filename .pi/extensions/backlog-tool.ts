@@ -85,7 +85,7 @@ export function registerBacklogTool(pi: ExtensionAPI) {
               sendPrompt(panes.reviewer, prompt, true);
             } else if (params.newStatus === "dev-rework" && (mode === "loop-hitl" || mode === "auto")) {
               const prompt = `Issue #${params.issueId} requires rework. Read feedback notes: '${params.notes || "Check review/QA comments"}', fix issues in backend/ or frontend/, re-run build-verify, commit, push, and update status to 'qa-verifying'.`;
-              sendPrompt(panes.developer, prompt, true);
+              sendPrompt(panes.developer, prompt, false);
             } else if (params.newStatus === "done") {
               if (mode === "loop-hitl") {
                 // STRICT LOOP-HITL HALT: Stop and wait for human input at story completion
@@ -126,7 +126,7 @@ export function registerBacklogTool(pi: ExtensionAPI) {
         Type.Literal("orchestrator")
       ], { description: "Target agent persona role" }),
       message: Type.String({ description: "Direct feedback, question, or instruction message to send" }),
-      clearContext: Type.Optional(Type.Boolean({ description: "Whether to clear target agent conversation context before sending message (default: true)" }))
+      clearContext: Type.Optional(Type.Boolean({ description: "Whether to clear target agent conversation context before sending message (default: false)" }))
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       const configPath = path.join(process.cwd(), ".pi", "team-config.json");
@@ -147,7 +147,7 @@ export function registerBacklogTool(pi: ExtensionAPI) {
           };
         }
 
-        const shouldClear = params.clearContext !== false;
+        const shouldClear = params.clearContext === true;
         if (shouldClear) {
           try {
             execSync(`tmux send-keys -t ${targetPane} "/clear" Enter`, { stdio: "ignore" });

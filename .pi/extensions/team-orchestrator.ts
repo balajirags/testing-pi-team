@@ -61,10 +61,10 @@ export default function (pi: ExtensionAPI) {
         // Non-fatal
       }
 
-      // Initial greeting prompt in Orchestrator Pane 0: Display interactive welcome menu and wait for human instruction
+      // Initial greeting prompt in Orchestrator Pane 0: Display interactive welcome menu and STOP to wait for human instruction
       tmux.sendPromptToPane(
         panes.orchestrator,
-        `Master Orchestrator online [--team-mode=${mode}]! Scan Agent.md, docs/brd/, docs/stories/, and GitHub/Jira issues. Display the welcome banner with options (1. Implement BRD/PRD, 2. Pick a specific Story/Issue, 3. Random Implementation, 4. Custom Task/Bug Fix) and prompt the user for their choice.`
+        `Master Orchestrator online [--team-mode=${mode}]! Print the welcome banner and options (1. Implement BRD/PRD, 2. Pick a specific Story/Issue, 3. Random Implementation, 4. Custom Task/Bug Fix). DO NOT call send_agent_message or start any work automatically. STOP IMMEDIATELY and wait for the human user in Pane 0 to enter their instruction.`
       );
 
       ctx.ui.notify(`Team setup complete in 5-pane tmux session 'pi-team' [--team-mode=${mode}]. Attach with: tmux attach -t pi-team`, "info");
