@@ -91,6 +91,13 @@ In **ALL team modes** (`loop-hitl`, `auto`, and `step-hitl`), the system automat
 
 ---
 
+## 🎯 Single Source of Truth (SOT) & Git Sequential Protocol
+
+- **Delivery Tracker is Authoritative SOT**: GitHub Issues, Jira, or `docs/stories/` is the sole source of truth for story requirements, ACs, and lifecycle states (open, closed, merged). `.pi/active-task.json` is strictly an ephemeral in-memory active pointer for live session steering.
+- **Git Sequential Branching**: Developer ALWAYS pulls clean `main` (`git checkout main && git pull origin main`) before cutting a new `feature/issue-<id>` branch. Reviewer merges approved branches back into `main` and pushes `main` before closing the tracker story.
+
+---
+
 ## 📐 Project Boundaries & Quality Thresholds
 
 1. **Source Layout Boundaries**:

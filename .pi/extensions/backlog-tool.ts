@@ -106,11 +106,12 @@ export function registerBacklogTool(pi: ExtensionAPI) {
               // Ignore if tmux session not attached
             }
 
-            // Helper to send keys with optional context clear
-            const sendPrompt = (paneTarget: string, promptText: string, clear = true) => {
+            // Helper to send keys with optional context clear (with delay after /clear to prevent dropped prompts)
+            const sendPromptAsync = async (paneTarget: string, promptText: string, clear = true) => {
               try {
                 if (clear) {
                   execSync(`tmux send-keys -t ${paneTarget} "/clear" Enter`, { stdio: "ignore" });
+                  await new Promise(resolve => setTimeout(resolve, 1500));
                 }
                 const escaped = promptText.replace(/"/g, '\\"');
                 execSync(`tmux send-keys -t ${paneTarget} "${escaped}" Enter`, { stdio: "ignore" });
@@ -122,7 +123,7 @@ export function registerBacklogTool(pi: ExtensionAPI) {
             // Handle circuit breaker alert
             if (circuitBreakerTripped) {
               const alertMsg = `⚠️ ALERT: Issue #${params.issueId} has exceeded 3 rework attempts! REWORK_CIRCUIT_BREAKER_TRIPPED. Workflow is PAUSED. Please intervene in Pane 0 to guide Developer or review changes.`;
-              sendPrompt(panes.orchestrator, alertMsg, false);
+              await sendPromptAsync(panes.orchestrator, alertMsg, false);
               return {
                 content: [{ type: "text", text: `Updated task #${params.issueId} status to 'circuit-breaker-tripped' (rework count: ${currentReworkCount})` }],
                 details: state
@@ -131,17 +132,17 @@ export function registerBacklogTool(pi: ExtensionAPI) {
 
             // Auto-steer transitions according to mode
             if (params.newStatus === "ready-for-dev" && (mode === "loop-hitl" || mode === "auto")) {
-              const prompt = `Issue #${params.issueId} is ready for development. Read project-context.md, checkout branch feature/issue-${params.issueId}, implement code inside backend/ or frontend/, run tests & verify coverage, commit, push, and update status to 'qa-verifying'.`;
-              sendPrompt(panes.developer, prompt, true);
+              const prompt = `Issue #${params.issueId} is ready for development. Read project-context.md, checkout main, pull latest main, checkout branch feature/issue-${params.issueId}, implement code inside backend/ or frontend/, run tests & verify coverage, commit, push, and update status to 'qa-verifying'.`;
+              await sendPromptAsync(panes.developer, prompt, true);
             } else if (params.newStatus === "qa-verifying" && (mode === "loop-hitl" || mode === "auto")) {
-              const prompt = `Issue #${params.issueId} is ready for QA verification. Checkout feature branch, verify app server is running on localhost port, execute live HTTP/UI AC checks, and update status.`;
-              sendPrompt(panes.qa, prompt, true);
+              const prompt = `Issue #${params.issueId} is ready for QA verification. Checkout feature branch feature/issue-${params.issueId}, verify app server is running on localhost port, execute live HTTP/UI AC checks, and update status.`;
+              await sendPromptAsync(panes.qa, prompt, true);
             } else if (params.newStatus === "code-review" && (mode === "loop-hitl" || mode === "auto")) {
-              const prompt = `Issue #${params.issueId} is ready for Code Review. Inspect git diff vs main, verify P1/P2 standards, merge PR to main, and update status to 'done'.`;
-              sendPrompt(panes.reviewer, prompt, true);
+              const prompt = `Issue #${params.issueId} is ready for Code Review. Inspect git diff feature/issue-${params.issueId} vs main, verify P1/P2 standards, merge branch to main, push main, close tracker issue, and update status to 'done'.`;
+              await sendPromptAsync(panes.reviewer, prompt, true);
             } else if (params.newStatus === "dev-rework" && (mode === "loop-hitl" || mode === "auto")) {
               const prompt = `Issue #${params.issueId} requires rework (attempt ${currentReworkCount}/3). Read feedback notes: '${params.notes || "Check review/QA comments"}', fix issues in backend/ or frontend/, re-run build-verify, commit, push, and update status to 'qa-verifying'.`;
-              sendPrompt(panes.developer, prompt, false);
+              await sendPromptAsync(panes.developer, prompt, false);
             } else if (params.newStatus === "done") {
               // Send end-of-story summary card to Pane 0
               const summaryCard = `\n==============================================================\n` +
@@ -153,7 +154,7 @@ export function registerBacklogTool(pi: ExtensionAPI) {
                 `• Audit Log: docs/dev-checkpoints/${params.issueId}.json\n` +
                 `==============================================================\n`;
 
-              sendPrompt(panes.orchestrator, summaryCard, false);
+              await sendPromptAsync(panes.orchestrator, summaryCard, false);
 
               if (mode === "loop-hitl") {
                 // STRICT LOOP-HITL HALT: Stop and wait for human input at story completion
@@ -161,10 +162,10 @@ export function registerBacklogTool(pi: ExtensionAPI) {
                 fs.writeFileSync(activeTaskPath, JSON.stringify(state, null, 2), "utf-8");
 
                 const prompt = `[LOOP-HITL HALT] The 1-story loop for #${params.issueId} has completed end-to-end. Workflow is HALTED. Type 'next' or press Enter to pick up and develop the next story in the backlog.`;
-                sendPrompt(panes.orchestrator, prompt, false);
+                await sendPromptAsync(panes.orchestrator, prompt, false);
               } else if (mode === "auto") {
                 const prompt = `Story #${params.issueId} is COMPLETE & MERGED! [AUTO MODE] Picking up next story from backlog for BA grooming/dev.`;
-                sendPrompt(panes.ba, prompt, true);
+                await sendPromptAsync(panes.ba, prompt, true);
               }
             }
           }
@@ -219,6 +220,7 @@ export function registerBacklogTool(pi: ExtensionAPI) {
         if (shouldClear) {
           try {
             execSync(`tmux send-keys -t ${targetPane} "/clear" Enter`, { stdio: "ignore" });
+            await new Promise(resolve => setTimeout(resolve, 1500));
           } catch {
             // Ignore if tmux send-keys fails
           }

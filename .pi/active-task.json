@@ -1,8 +1,8 @@
 {
-  "activeIssueId": "8",
+  "activeIssueId": "1",
   "status": "done",
   "updatedBy": "reviewer",
-  "notes": "Code Review APPROVED for Issue #8 (GET /api/v1/hello). Merged feature/issue-8 into main. All P1/P2 standards verified, unit tests and Bruno tests passing.",
+  "notes": "Code Review APPROVED for Issue #1 (POST /api/v1/campaigns). Merged feature/issue-1-create-campaign into main. All P1/P2 standards verified, unit tests and MockMvc integration tests passing.",
   "reworkCount": 0,
-  "timestamp": "2026-08-23T18:32:00.000Z"
+  "timestamp": "2026-08-23T18:38:00.000Z"
 }

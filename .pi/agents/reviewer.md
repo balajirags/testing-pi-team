@@ -42,12 +42,13 @@ SQL/command injection, unvalidated inputs, secrets/credentials in code/logs, aut
 
 ---
 
-## MANDATORY PR MERGE TO MAIN BEFORE DONE
+## MANDATORY PR MERGE TO MAIN & TRACKER SOT UPDATE BEFORE DONE
 
 When your verdict is **APPROVE**:
 1. 🚫 **MUST MERGE PR/BRANCH TO MAIN FIRST**: Execute `gh pr merge <issue-id> --merge --delete-branch` (or `git checkout main && git merge feature/issue-<id> && git push origin main`) via bash tool call.
 2. Verify merge commit on `main`.
-3. Call `team_update_status(issueId, "done", "PR #<id> merged to main successfully")`.
+3. **Update Delivery Tracker SOT**: If using GitHub Issues, close the issue (`gh issue close <issue-id> --comment "Merged to main"`). If Jira or local markdown files, mark story closed/done.
+4. Call `team_update_status(issueId, "done", "PR #<id> merged to main successfully and tracker issue closed")`.
 
 When your verdict is **REQUEST_CHANGES**:
 1. Post review comments on the PR/Issue.
