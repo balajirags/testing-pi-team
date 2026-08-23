@@ -1,0 +1,33 @@
+meta {
+  name: Get Random Hash
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/random-hash
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.headers["content-type"]: contains application/json
+  res.body.hash: isDefined
+  res.body.status: eq SUCCESS
+  res.body.timestamp: isDefined
+}
+
+tests {
+  test("should return 200 OK", function() {
+    expect(res.getStatus()).to.equal(200);
+  });
+
+  test("should return random hash payload", function() {
+    const body = res.getBody();
+    expect(body.hash).to.be.a('string');
+    expect(body.hash).to.have.lengthOf(64);
+    expect(body.status).to.equal("SUCCESS");
+    expect(body.timestamp).to.be.a('string');
+  });
+}
