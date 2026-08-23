@@ -13,6 +13,29 @@ export interface ActiveTaskState {
   timestamp: string;
 }
 
+function appendEventLog(eventRecord: any): void {
+  try {
+    const eventsPath = path.join(process.cwd(), ".pi", "events.jsonl");
+    fs.mkdirSync(path.dirname(eventsPath), { recursive: true });
+
+    let lines: string[] = [];
+    if (fs.existsSync(eventsPath)) {
+      lines = fs.readFileSync(eventsPath, "utf-8").trim().split("\n").filter(Boolean);
+    }
+
+    lines.push(JSON.stringify(eventRecord));
+
+    // Cap at 1000 events max (auto-truncation log rotation) to prevent file bloat
+    if (lines.length > 1000) {
+      lines = lines.slice(-1000);
+    }
+
+    fs.writeFileSync(eventsPath, lines.join("\n") + "\n", "utf-8");
+  } catch {
+    // Ignore log write error
+  }
+}
+
 export function registerBacklogTool(pi: ExtensionAPI) {
   // Tool 1: team_update_status
   pi.registerTool({
@@ -229,20 +252,14 @@ export function registerBacklogTool(pi: ExtensionAPI) {
         const formatted = `[DIRECT MESSAGE to ${params.targetRole.toUpperCase()}]: ${params.message}`;
         execSync(`tmux send-keys -t ${targetPane} "${formatted.replace(/"/g, '\\"')}" Enter`, { stdio: "ignore" });
 
-        // Log direct message to .pi/events.jsonl
-        try {
-          const eventsPath = path.join(process.cwd(), ".pi", "events.jsonl");
-          const msgEvent = {
-            eventId: `evt_${Date.now()}`,
-            type: "direct_message",
-            targetRole: params.targetRole,
-            message: params.message,
-            timestamp: new Date().toISOString()
-          };
-          fs.appendFileSync(eventsPath, JSON.stringify(msgEvent) + "\n", "utf-8");
-        } catch {
-          // Ignore
-        }
+        // Log direct message to .pi/events.jsonl with auto-truncation cap
+        appendEventLog({
+          eventId: `evt_${Date.now()}`,
+          type: "direct_message",
+          targetRole: params.targetRole,
+          message: params.message,
+          timestamp: new Date().toISOString()
+        });
 
         return {
           content: [{ type: "text", text: `Sent direct message to ${params.targetRole.toUpperCase()} pane (${targetPane})${shouldClear ? " [context cleared]" : ""}.` }],

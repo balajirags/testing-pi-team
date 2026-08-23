@@ -1,13 +1,6 @@
-# macOS
-.DS_Store
+node_modules/
+dist/
+.pi/active-task.json
+.pi/events.jsonl
+.pi/team-config.json
 
-# IDE
-.vscode/
-
-# Gradle and Java build outputs
-**/.gradle/
-**/build/
-**/bin/
-
-# Java compiled classes
-**/*.class
