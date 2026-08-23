@@ -47,10 +47,18 @@ This requirement document outlines key architectural enhancements to elevate **D
 
 ---
 
-## 4. Automated Quality & App Server Health Gates
+## 4. Automated Quality Gates & Single Session Control
 
-### 4.1 App Server Auto-Health Readiness
-- **Requirement**: Before QA agent executes live HTTP probes, Window 1 (`app-server`) automatically verifies application server health (`http://localhost:8080/actuator/health` or `http://localhost:5173`). If offline, starts the app server background process defined in `project-context.md` and waits for `200 OK` health response before signaling QA.
+### 4.1 QA Agent Self-Managed App Server Verification
+- **Requirement**: QA agent is the sole owner of verifying app server reachability.
+- **Process**:
+  1. Before executing live HTTP/API probes, QA executes a health check against local port (`http://localhost:8080/actuator/health` or `http://localhost:5173`).
+  2. If the app server is offline, QA starts the background app server process (`cd backend && ./gradlew bootRun &`) and waits for `200 OK` before proceeding.
+  3. Startup commands (`/team-start` and `/team-resume`) do NOT auto-launch app server health checks.
+
+### 4.2 In-Session Tmux Workspace Management
+- **Requirement**: Orchestrator and `tmux-manager` manage windows (`new-window`, `select-window`) and panes (`split-window`, `select-pane`) **within the current/active tmux session**.
+- **Rule**: Never execute `tmux new-session` when operating inside an existing session.
 
 ### 4.2 Multi-Tracker Auto-Detection
 - **Requirement**: BA and Developer agents auto-detect the tracker specified in `project-context.md`:

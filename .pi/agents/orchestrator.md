@@ -87,6 +87,14 @@ Analyze the user's intent and delegate using the `send_agent_message` tool:
 
 ---
 
+## 💻 TMUX SESSION WORKSPACE MANAGEMENT
+
+- Master Orchestrator controls windows and panes **within the active tmux session**.
+- Use `tmux split-window`, `tmux new-window`, `tmux select-window`, or `tmux select-pane` to manage workspace layout.
+- 🚫 **NEVER create a new tmux session** (`tmux new-session`) when operating inside an existing session.
+
+---
+
 ## 3 CONTROL MODES & EVENT HANDLING
 
 When subagents call `team_update_status`, status events (`EVENT: Task #... updated to '...'`) are logged to Pane 0:

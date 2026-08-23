@@ -78,13 +78,6 @@ export default function (pi: ExtensionAPI) {
       timestamp: new Date().toISOString()
     }, null, 2), "utf-8");
 
-    try {
-      const appWindow = tmux.startAppServerWindow("echo '=== APP SERVER WINDOW ==='; exec bash");
-      ctx.ui.notify(`App server window ready at '${appWindow}'`, "info");
-    } catch {
-      // Non-fatal
-    }
-
     // Initial greeting prompt in Orchestrator: Display welcome menu and STOP
     tmux.sendPromptToPane(
       panes.orchestrator,
@@ -125,12 +118,6 @@ export default function (pi: ExtensionAPI) {
     const panes = tmux.setupLayout(config.layout);
     config.panes = panes;
     saveConfig(config);
-
-    try {
-      tmux.startAppServerWindow("echo '=== APP SERVER WINDOW ==='; exec bash");
-    } catch {
-      // Non-fatal
-    }
 
     // Resume prompt in Orchestrator Pane 0
     const resumePrompt = `Master Orchestrator RESUMED [--mode=${config.mode}, --layout=${config.layout}]! ` +
