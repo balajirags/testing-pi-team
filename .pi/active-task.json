@@ -1,8 +1,8 @@
 {
   "activeIssueId": "2",
-  "status": "qa-verifying",
-  "updatedBy": "developer",
-  "notes": "Added missing COMPLETED enum constant to CampaignStatus.java. Clean build and tests verified.",
+  "status": "code-review",
+  "updatedBy": "reviewer",
+  "notes": "Code Review in progress for Issue #2 (GET /api/v1/campaigns).",
   "reworkCount": 1,
-  "timestamp": "2026-08-23T18:39:00.000Z"
+  "timestamp": "2026-08-23T18:42:00.000Z"
 }
