@@ -1,0 +1,8 @@
+{
+  "storyId": "9",
+  "status": "code-review",
+  "updatedBy": "/Users/gbalaji/projects/personal/testing-pi-team",
+  "notes": "All Gherkin Acceptance Criteria verified on running Spring Boot server at http://localhost:8080. Live HTTP requests and Bruno E2E tests passed cleanly. Updating status to code-review.",
+  "reworkCount": 0,
+  "timestamp": "2026-08-23T12:52:50.643Z"
+}
