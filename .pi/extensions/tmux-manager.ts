@@ -21,25 +21,110 @@ export class TmuxManager {
   }
 
   public setup5PaneLayout(): TmuxPaneMap {
-    // Top Pane 0: Master Orchestrator Dashboard
-    execSync(`tmux new-session -d -s ${this.sessionName} -n team "echo '--- MASTER ORCHESTRATOR DASHBOARD ---'"`);
+    // Kill existing session if present
+    try {
+      execSync(`tmux kill-session -t ${this.sessionName} 2>/dev/null`, { stdio: "ignore" });
+    } catch {
+      // Ignore if session didn't exist
+    }
 
-    // Split bottom area for subagents
-    execSync(`tmux split-window -v -t ${this.sessionName}:0 "pi -a ba"`);
-    execSync(`tmux split-window -h -t ${this.sessionName}:0.1 "pi -a developer"`);
-    execSync(`tmux split-window -v -t ${this.sessionName}:0.1 "pi -a qa"`);
-    execSync(`tmux split-window -v -t ${this.sessionName}:0.2 "pi -a reviewer"`);
+    // 1. Create Window 0 (team) with Pane 0: Master Orchestrator Pi Agent
+    const orchestratorPane = execSync(
+      `tmux new-session -d -s ${this.sessionName} -n team -P -F "#{pane_id}" "pi -a orchestrator; exec bash"`
+    ).toString().trim();
 
-    // Resize Orchestrator top pane to 20% height
-    execSync(`tmux resize-pane -t ${this.sessionName}:0.0 -y 20%`);
+    // 2. Split bottom area for BA
+    const baPane = execSync(
+      `tmux split-window -v -t ${orchestratorPane} -P -F "#{pane_id}" "pi -a ba; exec bash"`
+    ).toString().trim();
+
+    // 3. Split bottom area horizontally for DEV
+    const devPane = execSync(
+      `tmux split-window -h -t ${baPane} -P -F "#{pane_id}" "pi -a developer; exec bash"`
+    ).toString().trim();
+
+    // 4. Split Left column vertically for QA
+    const qaPane = execSync(
+      `tmux split-window -v -t ${baPane} -P -F "#{pane_id}" "pi -a qa; exec bash"`
+    ).toString().trim();
+
+    // 5. Split Right column vertically for REVIEWER
+    const reviewerPane = execSync(
+      `tmux split-window -v -t ${devPane} -P -F "#{pane_id}" "pi -a reviewer; exec bash"`
+    ).toString().trim();
+
+    // Configure Pane Titles & Border Styling
+    try {
+      execSync(`tmux set-option -t ${this.sessionName} pane-border-status top`);
+      execSync(`tmux set-option -t ${this.sessionName} pane-border-style "fg=cyan"`);
+      execSync(`tmux set-option -t ${this.sessionName} pane-border-format "#[fg=black,bg=cyan,bold] [ #{pane_title} ] #[default]"`);
+
+      execSync(`tmux select-pane -t ${orchestratorPane} -T "ORCHESTRATOR"`);
+      execSync(`tmux select-pane -t ${baPane} -T "BUSINESS ANALYST (BA)"`);
+      execSync(`tmux select-pane -t ${devPane} -T "DEVELOPER (DEV)"`);
+      execSync(`tmux select-pane -t ${qaPane} -T "QUALITY ANALYST (QA)"`);
+      execSync(`tmux select-pane -t ${reviewerPane} -T "CODE REVIEWER (REVIEWER)"`);
+
+      // Resize Orchestrator top pane to 25% height
+      execSync(`tmux resize-pane -t ${orchestratorPane} -y 25%`);
+    } catch {
+      // Non-fatal if styling fails
+    }
 
     return {
-      orchestrator: `${this.sessionName}:0.0`,
-      ba: `${this.sessionName}:0.1`,
-      developer: `${this.sessionName}:0.2`,
-      qa: `${this.sessionName}:0.3`,
-      reviewer: `${this.sessionName}:0.4`
+      orchestrator: orchestratorPane,
+      ba: baPane,
+      developer: devPane,
+      qa: qaPane,
+      reviewer: reviewerPane
     };
+  }
+
+  // Create Window 1 for running the Application Server isolated
+  public startAppServerWindow(startCommand?: string): string {
+    const windowName = "app-server";
+    try {
+      // Check if window already exists
+      const windows = execSync(`tmux list-windows -t ${this.sessionName} -F "#{window_name}"`).toString();
+      if (windows.includes(windowName)) {
+        return `${this.sessionName}:app-server`;
+      }
+
+      const cmd = startCommand || "echo '=== APP SERVER WINDOW ==='; exec bash";
+      execSync(`tmux new-window -t ${this.sessionName} -n ${windowName} "${cmd.replace(/"/g, '\\"')}"`);
+      return `${this.sessionName}:${windowName}`;
+    } catch {
+      return `${this.sessionName}:0`;
+    }
+  }
+
+  // Verify and recover any closed pane
+  public recoverMissingPanes(currentPanes: TmuxPaneMap): TmuxPaneMap {
+    try {
+      const livePanes = execSync(`tmux list-panes -t ${this.sessionName}:0 -F "#{pane_id}"`).toString();
+      const updated = { ...currentPanes };
+
+      if (!livePanes.includes(currentPanes.ba)) {
+        updated.ba = execSync(`tmux split-window -v -t ${currentPanes.orchestrator} -P -F "#{pane_id}" "pi -a ba; exec bash"`).toString().trim();
+        execSync(`tmux select-pane -t ${updated.ba} -T "BUSINESS ANALYST (BA)"`);
+      }
+      if (!livePanes.includes(currentPanes.developer)) {
+        updated.developer = execSync(`tmux split-window -h -t ${updated.ba} -P -F "#{pane_id}" "pi -a developer; exec bash"`).toString().trim();
+        execSync(`tmux select-pane -t ${updated.developer} -T "DEVELOPER (DEV)"`);
+      }
+      if (!livePanes.includes(currentPanes.qa)) {
+        updated.qa = execSync(`tmux split-window -v -t ${updated.ba} -P -F "#{pane_id}" "pi -a qa; exec bash"`).toString().trim();
+        execSync(`tmux select-pane -t ${updated.qa} -T "QUALITY ANALYST (QA)"`);
+      }
+      if (!livePanes.includes(currentPanes.reviewer)) {
+        updated.reviewer = execSync(`tmux split-window -v -t ${updated.developer} -P -F "#{pane_id}" "pi -a reviewer; exec bash"`).toString().trim();
+        execSync(`tmux select-pane -t ${updated.reviewer} -T "CODE REVIEWER (REVIEWER)"`);
+      }
+
+      return updated;
+    } catch {
+      return currentPanes;
+    }
   }
 
   public sendPromptToPane(paneTarget: string, promptText: string): void {
