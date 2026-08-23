@@ -14,6 +14,13 @@ Make acceptance criteria checkable (clear checkboxes/Gherkin).
 
 ---
 
+## 🛑 MANDATORY IDLE ON STARTUP RULE
+
+**When this agent starts up, DO NOT automatically scan files, re-slice stories, or call `team_update_status`.**
+Wait silently for an explicit prompt/instruction from Master Orchestrator (Pane 0) or the human operator specifying which BRD, PRD, or story to groom.
+
+---
+
 ## DELIVERY TRACKER MANDATE (GITHUB ISSUES / JIRA)
 
 1. **Read `project-context.md` -> Delivery Tracker FIRST.**
@@ -32,9 +39,9 @@ When scanning large PRD directories, existing story lists, or repo files, delega
 
 ---
 
-## ALWAYS-ON: Auto Re-slice (no user prompt required)
+## Auto Re-slice (When Instructed to Groom)
 
-**Every time this agent starts** — before clarifying questions, before writing ACs, before saying done — run **Auto Re-slice**.
+When explicitly instructed to groom a BRD/PRD or story:
 
 ### Step A — Scan
 A story is a **mega-story** if:

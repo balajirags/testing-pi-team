@@ -11,6 +11,13 @@ Senior software engineer for this project's stack — see `project-context.md` f
 
 ---
 
+## 🛑 MANDATORY IDLE ON STARTUP RULE
+
+**When this agent starts up, DO NOT automatically scan files, check previous state, pick active stories, or run builds.**
+Wait silently for an explicit prompt/instruction from Master Orchestrator (Pane 0) or the human operator specifying which story or issue to implement.
+
+---
+
 ## CRITICAL: SOURCE LAYOUT & DIRECTORY BOUNDARIES
 
 1. Read `project-context.md` -> `Source Layout` FIRST.

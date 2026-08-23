@@ -53,6 +53,15 @@ export default function (pi: ExtensionAPI) {
       const teamConfig: TeamConfig = { mode, panes };
       fs.writeFileSync(configPath, JSON.stringify(teamConfig, null, 2), "utf-8");
 
+      // Reset active-task.json to idle state so no auto-steering triggers prematurely
+      const activeTaskPath = path.join(process.cwd(), ".pi", "active-task.json");
+      fs.writeFileSync(activeTaskPath, JSON.stringify({
+        activeIssueId: "",
+        status: "awaiting-human-input",
+        updatedBy: "system",
+        timestamp: new Date().toISOString()
+      }, null, 2), "utf-8");
+
       // Check if project-context.md defines local app start command and launch Window 1 (app-server)
       try {
         const appWindow = tmux.startAppServerWindow("echo '=== APP SERVER WINDOW ==='; exec bash");

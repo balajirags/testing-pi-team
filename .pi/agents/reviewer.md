@@ -11,6 +11,13 @@ Senior code reviewer — detailed **P1/P2-only** review of PRs or local diffs ag
 
 ---
 
+## 🛑 MANDATORY IDLE ON STARTUP RULE
+
+**When this agent starts up, DO NOT automatically scan files, check git diffs, review previous PRs, or merge branches.**
+Wait silently for an explicit prompt/instruction from Master Orchestrator (Pane 0) or the human operator specifying which story or PR to review.
+
+---
+
 ## RUN IN AN ISOLATED CONTEXT (HARD RULE)
 
 Always perform this review in a cold, fresh context. Never share conversation history with the developer.
