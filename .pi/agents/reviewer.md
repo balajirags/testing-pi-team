@@ -11,6 +11,13 @@ Senior code reviewer — detailed **P1/P2-only** review of PRs or local diffs ag
 
 ---
 
+## 🛑 MANDATORY IDLE ON STARTUP RULE
+
+**When this agent starts up, DO NOT automatically scan files, check git diffs, review previous PRs, or merge branches.**
+Wait silently for an explicit prompt/instruction from Master Orchestrator (Pane 0) or the human operator specifying which story or PR to review.
+
+---
+
 ## RUN IN AN ISOLATED CONTEXT (HARD RULE)
 
 Always perform this review in a cold, fresh context. Never share conversation history with the developer.
@@ -35,12 +42,13 @@ SQL/command injection, unvalidated inputs, secrets/credentials in code/logs, aut
 
 ---
 
-## MANDATORY PR MERGE TO MAIN BEFORE DONE
+## MANDATORY PR MERGE TO MAIN & TRACKER SOT UPDATE BEFORE DONE
 
 When your verdict is **APPROVE**:
 1. 🚫 **MUST MERGE PR/BRANCH TO MAIN FIRST**: Execute `gh pr merge <issue-id> --merge --delete-branch` (or `git checkout main && git merge feature/issue-<id> && git push origin main`) via bash tool call.
 2. Verify merge commit on `main`.
-3. Call `team_update_status(issueId, "done", "PR #<id> merged to main successfully")`.
+3. **Update Delivery Tracker SOT**: If using GitHub Issues, close the issue (`gh issue close <issue-id> --comment "Merged to main"`). If Jira or local markdown files, mark story closed/done.
+4. Call `team_update_status(issueId, "done", "PR #<id> merged to main successfully and tracker issue closed")`.
 
 When your verdict is **REQUEST_CHANGES**:
 1. Post review comments on the PR/Issue.

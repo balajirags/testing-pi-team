@@ -6,9 +6,10 @@ import * as path from "path";
 
 export interface ActiveTaskState {
   activeIssueId: string;
-  status: "ba-in-progress" | "ready-for-dev" | "dev-in-progress" | "qa-verifying" | "code-review" | "done" | "dev-rework" | "loop-halted";
+  status: "ba-in-progress" | "ready-for-dev" | "dev-in-progress" | "qa-verifying" | "code-review" | "done" | "dev-rework" | "loop-halted" | "circuit-breaker-tripped";
   updatedBy: string;
   notes?: string;
+  reworkCount?: number;
   timestamp: string;
 }
 
@@ -33,15 +34,60 @@ export function registerBacklogTool(pi: ExtensionAPI) {
       const activeTaskPath = path.join(process.cwd(), ".pi", "active-task.json");
       fs.mkdirSync(path.dirname(activeTaskPath), { recursive: true });
 
+      // Read previous active-task state to track reworkCount
+      let previousReworkCount = 0;
+      if (fs.existsSync(activeTaskPath)) {
+        try {
+          const prevState: ActiveTaskState = JSON.parse(fs.readFileSync(activeTaskPath, "utf-8"));
+          if (prevState.activeIssueId === params.issueId) {
+            previousReworkCount = prevState.reworkCount || 0;
+          }
+        } catch {
+          // Ignore
+        }
+      }
+
+      let currentReworkCount = previousReworkCount;
+      if (params.newStatus === "dev-rework") {
+        currentReworkCount += 1;
+      }
+
       const state: ActiveTaskState = {
         activeIssueId: params.issueId,
         status: params.newStatus as ActiveTaskState["status"],
         updatedBy: ctx.cwd || "agent",
         notes: params.notes,
+        reworkCount: currentReworkCount,
         timestamp: new Date().toISOString()
       };
 
+      // Check circuit breaker
+      let circuitBreakerTripped = false;
+      if (currentReworkCount > 3) {
+        state.status = "circuit-breaker-tripped";
+        circuitBreakerTripped = true;
+      }
+
       fs.writeFileSync(activeTaskPath, JSON.stringify(state, null, 2), "utf-8");
+
+      // Write structured JSON audit checkpoint
+      if (params.issueId) {
+        try {
+          const checkpointDir = path.join(process.cwd(), "docs", "dev-checkpoints");
+          fs.mkdirSync(checkpointDir, { recursive: true });
+          const checkpointPath = path.join(checkpointDir, `${params.issueId}.json`);
+          fs.writeFileSync(checkpointPath, JSON.stringify({
+            storyId: params.issueId,
+            status: state.status,
+            updatedBy: state.updatedBy,
+            notes: params.notes || "",
+            reworkCount: currentReworkCount,
+            timestamp: state.timestamp
+          }, null, 2), "utf-8");
+        } catch {
+          // Ignore checkpoint write error
+        }
+      }
 
       // Read team-config.json if available
       const configPath = path.join(process.cwd(), ".pi", "team-config.json");
@@ -60,11 +106,12 @@ export function registerBacklogTool(pi: ExtensionAPI) {
               // Ignore if tmux session not attached
             }
 
-            // Helper to send keys with optional context clear
-            const sendPrompt = (paneTarget: string, promptText: string, clear = true) => {
+            // Helper to send keys with optional context clear (with delay after /clear to prevent dropped prompts)
+            const sendPromptAsync = async (paneTarget: string, promptText: string, clear = true) => {
               try {
                 if (clear) {
                   execSync(`tmux send-keys -t ${paneTarget} "/clear" Enter`, { stdio: "ignore" });
+                  await new Promise(resolve => setTimeout(resolve, 1500));
                 }
                 const escaped = promptText.replace(/"/g, '\\"');
                 execSync(`tmux send-keys -t ${paneTarget} "${escaped}" Enter`, { stdio: "ignore" });
@@ -73,30 +120,52 @@ export function registerBacklogTool(pi: ExtensionAPI) {
               }
             };
 
+            // Handle circuit breaker alert
+            if (circuitBreakerTripped) {
+              const alertMsg = `⚠️ ALERT: Issue #${params.issueId} has exceeded 3 rework attempts! REWORK_CIRCUIT_BREAKER_TRIPPED. Workflow is PAUSED. Please intervene in Pane 0 to guide Developer or review changes.`;
+              await sendPromptAsync(panes.orchestrator, alertMsg, false);
+              return {
+                content: [{ type: "text", text: `Updated task #${params.issueId} status to 'circuit-breaker-tripped' (rework count: ${currentReworkCount})` }],
+                details: state
+              };
+            }
+
             // Auto-steer transitions according to mode
             if (params.newStatus === "ready-for-dev" && (mode === "loop-hitl" || mode === "auto")) {
-              const prompt = `Issue #${params.issueId} is ready for development. Read project-context.md, checkout branch feature/issue-${params.issueId}, implement code inside backend/ or frontend/, run tests & verify coverage, commit, push, and update status to 'qa-verifying'.`;
-              sendPrompt(panes.developer, prompt, true);
+              const prompt = `Issue #${params.issueId} is ready for development. Read project-context.md, checkout main, pull latest main, checkout branch feature/issue-${params.issueId}, implement code inside backend/ or frontend/, run tests & verify coverage, commit, push, and update status to 'qa-verifying'.`;
+              await sendPromptAsync(panes.developer, prompt, true);
             } else if (params.newStatus === "qa-verifying" && (mode === "loop-hitl" || mode === "auto")) {
-              const prompt = `Issue #${params.issueId} is ready for QA verification. Checkout feature branch, verify app server is running on localhost port, execute live HTTP/UI AC checks, and update status.`;
-              sendPrompt(panes.qa, prompt, true);
+              const prompt = `Issue #${params.issueId} is ready for QA verification. Checkout feature branch feature/issue-${params.issueId}, verify app server is running on localhost port, execute live HTTP/UI AC checks, and update status.`;
+              await sendPromptAsync(panes.qa, prompt, true);
             } else if (params.newStatus === "code-review" && (mode === "loop-hitl" || mode === "auto")) {
-              const prompt = `Issue #${params.issueId} is ready for Code Review. Inspect git diff vs main, verify P1/P2 standards, merge PR to main, and update status to 'done'.`;
-              sendPrompt(panes.reviewer, prompt, true);
+              const prompt = `Issue #${params.issueId} is ready for Code Review. Inspect git diff feature/issue-${params.issueId} vs main, verify P1/P2 standards, merge branch to main, push main, close tracker issue, and update status to 'done'.`;
+              await sendPromptAsync(panes.reviewer, prompt, true);
             } else if (params.newStatus === "dev-rework" && (mode === "loop-hitl" || mode === "auto")) {
-              const prompt = `Issue #${params.issueId} requires rework. Read feedback notes: '${params.notes || "Check review/QA comments"}', fix issues in backend/ or frontend/, re-run build-verify, commit, push, and update status to 'qa-verifying'.`;
-              sendPrompt(panes.developer, prompt, false);
+              const prompt = `Issue #${params.issueId} requires rework (attempt ${currentReworkCount}/3). Read feedback notes: '${params.notes || "Check review/QA comments"}', fix issues in backend/ or frontend/, re-run build-verify, commit, push, and update status to 'qa-verifying'.`;
+              await sendPromptAsync(panes.developer, prompt, false);
             } else if (params.newStatus === "done") {
+              // Send end-of-story summary card to Pane 0
+              const summaryCard = `\n==============================================================\n` +
+                `🎉 STORY #${params.issueId} COMPLETE & MERGED TO MAIN\n` +
+                `==============================================================\n` +
+                `• Active Issue: #${params.issueId}\n` +
+                `• Status: done\n` +
+                `• Notes: ${params.notes || "PR merged successfully"}\n` +
+                `• Audit Log: docs/dev-checkpoints/${params.issueId}.json\n` +
+                `==============================================================\n`;
+
+              await sendPromptAsync(panes.orchestrator, summaryCard, false);
+
               if (mode === "loop-hitl") {
                 // STRICT LOOP-HITL HALT: Stop and wait for human input at story completion
                 state.status = "loop-halted";
                 fs.writeFileSync(activeTaskPath, JSON.stringify(state, null, 2), "utf-8");
 
-                const prompt = `STORY #${params.issueId} COMPLETE & MERGED! [LOOP-HITL HALT] The 1-story loop has completed end-to-end. Workflow is HALTED. Type 'next' or press Enter to pick up and develop the next story in the backlog.`;
-                sendPrompt(panes.orchestrator, prompt, false);
+                const prompt = `[LOOP-HITL HALT] The 1-story loop for #${params.issueId} has completed end-to-end. Workflow is HALTED. Type 'next' or press Enter to pick up and develop the next story in the backlog.`;
+                await sendPromptAsync(panes.orchestrator, prompt, false);
               } else if (mode === "auto") {
                 const prompt = `Story #${params.issueId} is COMPLETE & MERGED! [AUTO MODE] Picking up next story from backlog for BA grooming/dev.`;
-                sendPrompt(panes.ba, prompt, true);
+                await sendPromptAsync(panes.ba, prompt, true);
               }
             }
           }
@@ -151,6 +220,7 @@ export function registerBacklogTool(pi: ExtensionAPI) {
         if (shouldClear) {
           try {
             execSync(`tmux send-keys -t ${targetPane} "/clear" Enter`, { stdio: "ignore" });
+            await new Promise(resolve => setTimeout(resolve, 1500));
           } catch {
             // Ignore if tmux send-keys fails
           }

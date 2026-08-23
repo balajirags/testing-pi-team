@@ -29,7 +29,10 @@ This repository is powered by an AI-native 5-agent team operating concurrently i
 
 ## 🤖 Orchestrator Control & Task Allocation
 
-Master Orchestrator (Pane 0) is the single entry point for human instructions. Upon session launch via `/team-dev`, Orchestrator displays a menu with 4 core choices:
+Master Orchestrator (Pane 0) is the single entry point for human instructions.
+🚫 **STRICT DELEGATION RULE**: Master Orchestrator NEVER creates story files, BRDs/PRDs, GitHub Issues, or code files itself. Orchestrator delegates ALL requirement grooming and story creation to the **BA agent (`ba`)** in Pane 1 via `send_agent_message`.
+
+Upon session launch via `/team-dev`, Orchestrator displays a menu with 4 core choices:
 
 1. **Implement a BRD / PRD**:
    - Human request: *"Proceed with docs/brd/campaigns.md"* or *"Groom the PRD"*
@@ -46,7 +49,31 @@ Master Orchestrator (Pane 0) is the single entry point for human instructions. U
 
 ---
 
-## 🎛️ Workflow Modes (`--team-mode`) & Automated Context Clearing
+## ⚙️ Configuration & Team Commands (`.pi/team-config.json`)
+
+The DevSquad AI team configuration is managed directly via `.pi/team-config.json`:
+
+```json
+{
+  "mode": "loop-hitl",
+  "layout": "panes"
+}
+```
+
+- **`mode`**: `"loop-hitl"` (default), `"step-hitl"`, or `"auto"`.
+- **`layout`**:
+  - `"panes"` (Default): Launches 5 split panes within 1 window (`team`).
+  - `"windows"`: Launches 5 full-screen windows within the same session (`orchestrator`, `ba`, `developer`, `qa`, `reviewer`).
+
+### 🚀 Slash Commands
+- **`/team-start`**: Starts a fresh team session. Resets `.pi/active-task.json` log, sets up the workspace layout, launches idle child agents, and waits for human input in Pane 0.
+- **`/team-resume`**: Resumes an active team session. Reads `.pi/active-task.json` log to recover task state (`activeIssueId`, `status`), recovers the workspace, and resumes Orchestrator state.
+- **`/team-dev`**: Backward-compatibility alias for `/team-start`.
+- **`/team-recover`**: Recovers any closed pane or window in the workspace.
+
+---
+
+## 🎛️ Workflow Modes & Automated Context Clearing
 
 - **`loop-hitl` (Default - Single Story Loop)**:
   Runs a single story end-to-end (BA → Dev → QA → Reviewer → Done). Upon story completion, workflow halts at Orchestrator Pane 0 for human approval before picking up the next story.
@@ -61,6 +88,13 @@ In **ALL team modes** (`loop-hitl`, `auto`, and `step-hitl`), the system automat
 - **QA Pane**: Context automatically cleared before receiving `qa-verifying` assignment (guaranteeing cold-read isolation).
 - **Reviewer Pane**: Context automatically cleared before receiving `code-review` assignment (guaranteeing cold-read isolation).
 - **BA Pane**: Context automatically cleared before receiving new story/BRD grooming assignment.
+
+---
+
+## 🎯 Single Source of Truth (SOT) & Git Sequential Protocol
+
+- **Delivery Tracker is Authoritative SOT**: GitHub Issues, Jira, or `docs/stories/` is the sole source of truth for story requirements, ACs, and lifecycle states (open, closed, merged). `.pi/active-task.json` is strictly an ephemeral in-memory active pointer for live session steering.
+- **Git Sequential Branching**: Developer ALWAYS pulls clean `main` (`git checkout main && git pull origin main`) before cutting a new `feature/issue-<id>` branch. Reviewer merges approved branches back into `main` and pushes `main` before closing the tracker story.
 
 ---
 

@@ -7,6 +7,7 @@ import * as path from "path";
 
 export interface TeamConfig {
   mode: "step-hitl" | "loop-hitl" | "auto";
+  layout: "panes" | "windows";
   panes: {
     orchestrator: string;
     ba: string;
@@ -16,77 +17,141 @@ export interface TeamConfig {
   };
 }
 
+function getOrCreateConfig(): TeamConfig {
+  const configPath = path.join(process.cwd(), ".pi", "team-config.json");
+  let config: TeamConfig = {
+    mode: "loop-hitl",
+    layout: "panes",
+    panes: { orchestrator: "", ba: "", developer: "", qa: "", reviewer: "" }
+  };
+
+  if (fs.existsSync(configPath)) {
+    try {
+      const loaded = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+      config = {
+        mode: loaded.mode || "loop-hitl",
+        layout: loaded.layout || "panes",
+        panes: loaded.panes || config.panes
+      };
+    } catch {
+      // Use defaults on parse error
+    }
+  }
+
+  return config;
+}
+
+function saveConfig(config: TeamConfig): void {
+  const configPath = path.join(process.cwd(), ".pi", "team-config.json");
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+}
+
 export default function (pi: ExtensionAPI) {
   registerBacklogTool(pi);
   registerStatusBanner(pi);
 
   const tmux = new TmuxManager();
 
-  // Command 1: /team-dev
-  pi.registerCommand("team-dev", {
-    description: "Launch multi-agent team workflow in tmux (Master Orchestrator, BA, Dev, QA, Reviewer). Options: --team-mode=loop|auto|step",
-    handler: async (args, ctx) => {
-      if (!tmux.isTmuxAvailable()) {
-        ctx.ui.notify("Error: tmux is required to run multi-agent team mode.", "error");
-        return;
-      }
+  // Handler for fresh start
+  const handleTeamStart = async (ctx: any) => {
+    if (!tmux.isTmuxAvailable()) {
+      ctx.ui.notify("Error: tmux is required to run multi-agent team mode.", "error");
+      return;
+    }
 
-      // Parse control mode: --team-mode=loop | --team-mode=auto | --team-mode=step
-      let mode: TeamConfig["mode"] = "loop-hitl"; // default loop-hitl
-      const argStr = args?.toLowerCase() || "";
+    const config = getOrCreateConfig();
+    ctx.ui.notify(`Initializing DevSquad Team [--mode=${config.mode}, --layout=${config.layout}]...`, "info");
 
-      if (argStr.includes("team-mode=auto") || argStr.includes("--auto") || argStr.includes("auto")) {
-        mode = "auto";
-      } else if (argStr.includes("team-mode=step") || argStr.includes("--step") || argStr.includes("step")) {
-        mode = "step-hitl";
-      } else if (argStr.includes("team-mode=loop") || argStr.includes("--loop") || argStr.includes("loop")) {
-        mode = "loop-hitl";
-      }
+    const panes = tmux.setupLayout(config.layout);
+    config.panes = panes;
+    saveConfig(config);
 
-      ctx.ui.notify(`Initializing Pi Agent Team [--team-mode=${mode}]...`, "info");
+    // Reset active-task.json to clean idle state
+    const activeTaskPath = path.join(process.cwd(), ".pi", "active-task.json");
+    fs.mkdirSync(path.dirname(activeTaskPath), { recursive: true });
+    fs.writeFileSync(activeTaskPath, JSON.stringify({
+      activeIssueId: "",
+      status: "awaiting-human-input",
+      updatedBy: "system",
+      notes: "Fresh team session started. Awaiting human input in Pane 0.",
+      timestamp: new Date().toISOString()
+    }, null, 2), "utf-8");
 
-      const panes = tmux.setup5PaneLayout();
+    // Initial greeting prompt in Orchestrator: Display welcome menu and STOP
+    tmux.sendPromptToPane(
+      panes.orchestrator,
+      `Master Orchestrator online [--mode=${config.mode}, --layout=${config.layout}]! Print the welcome banner and options (1. Implement BRD/PRD, 2. Pick a specific Story/Issue, 3. Random Implementation, 4. Custom Task/Bug Fix). DO NOT call send_agent_message or start any work automatically. STOP IMMEDIATELY and wait for the human user in Pane 0 to enter their instruction.`
+    );
 
-      // Write team-config.json so backlog tool can auto-steer transitions across panes
-      const configPath = path.join(process.cwd(), ".pi", "team-config.json");
-      fs.mkdirSync(path.dirname(configPath), { recursive: true });
-      const teamConfig: TeamConfig = { mode, panes };
-      fs.writeFileSync(configPath, JSON.stringify(teamConfig, null, 2), "utf-8");
+    ctx.ui.notify(`DevSquad setup complete in tmux session 'devsquad-workspace' [--mode=${config.mode}, --layout=${config.layout}]. Attach with: tmux attach -t devsquad-workspace`, "info");
+  };
 
-      // Reset active-task.json to idle state so no auto-steering triggers prematurely
-      const activeTaskPath = path.join(process.cwd(), ".pi", "active-task.json");
-      fs.writeFileSync(activeTaskPath, JSON.stringify({
-        activeIssueId: "",
-        status: "awaiting-human-input",
-        updatedBy: "system",
-        timestamp: new Date().toISOString()
-      }, null, 2), "utf-8");
+  // Handler for session resume
+  const handleTeamResume = async (ctx: any) => {
+    if (!tmux.isTmuxAvailable()) {
+      ctx.ui.notify("Error: tmux is required to run multi-agent team mode.", "error");
+      return;
+    }
 
-      // Check if project-context.md defines local app start command and launch Window 1 (app-server)
+    const config = getOrCreateConfig();
+
+    // Read active-task.json if available
+    const activeTaskPath = path.join(process.cwd(), ".pi", "active-task.json");
+    let activeIssueId = "";
+    let activeStatus = "awaiting-human-input";
+    let activeNotes = "";
+
+    if (fs.existsSync(activeTaskPath)) {
       try {
-        const appWindow = tmux.startAppServerWindow("echo '=== APP SERVER WINDOW ==='; exec bash");
-        ctx.ui.notify(`App server window ready at '${appWindow}'`, "info");
+        const taskState = JSON.parse(fs.readFileSync(activeTaskPath, "utf-8"));
+        activeIssueId = taskState.activeIssueId || "";
+        activeStatus = taskState.status || "awaiting-human-input";
+        activeNotes = taskState.notes || "";
       } catch {
-        // Non-fatal
+        // Ignore parse error
       }
+    }
 
-      // Initial greeting prompt in Orchestrator Pane 0: Display interactive welcome menu and STOP to wait for human instruction
-      tmux.sendPromptToPane(
-        panes.orchestrator,
-        `Master Orchestrator online [--team-mode=${mode}]! Print the welcome banner and options (1. Implement BRD/PRD, 2. Pick a specific Story/Issue, 3. Random Implementation, 4. Custom Task/Bug Fix). DO NOT call send_agent_message or start any work automatically. STOP IMMEDIATELY and wait for the human user in Pane 0 to enter their instruction.`
-      );
+    ctx.ui.notify(`Resuming DevSquad Team [--mode=${config.mode}, --layout=${config.layout}, activeIssue=#${activeIssueId}]...`, "info");
 
-      ctx.ui.notify(`Team setup complete in 5-pane tmux session 'pi-team' [--team-mode=${mode}]. Attach with: tmux attach -t pi-team`, "info");
+    const panes = tmux.setupLayout(config.layout);
+    config.panes = panes;
+    saveConfig(config);
+
+    // Resume prompt in Orchestrator Pane 0
+    const resumePrompt = `Master Orchestrator RESUMED [--mode=${config.mode}, --layout=${config.layout}]! ` +
+      `Active task recovered from log: Issue #${activeIssueId || 'None'} (Status: '${activeStatus}'). Notes: '${activeNotes || 'N/A'}'. ` +
+      `Print session recovery banner to user, state active task status, and ask the human user in Pane 0 how to proceed or continue.`;
+
+    tmux.sendPromptToPane(panes.orchestrator, resumePrompt);
+
+    ctx.ui.notify(`DevSquad session resumed in tmux 'devsquad-workspace' [Issue #${activeIssueId || 'None'}, Status: ${activeStatus}]. Attach with: tmux attach -t devsquad-workspace`, "info");
+  };
+
+  // Command 1: /devsquad-start
+  pi.registerCommand("devsquad-start", {
+    description: "Start a fresh DevSquad AI session in tmux based on .pi/team-config.json",
+    handler: async (_args, ctx) => {
+      await handleTeamStart(ctx);
     }
   });
 
-  // Command 2: /team-recover (Recover any accidentally closed pane)
-  pi.registerCommand("team-recover", {
-    description: "Recover any closed agent pane in the active tmux workspace",
+  // Command 2: /devsquad-resume
+  pi.registerCommand("devsquad-resume", {
+    description: "Resume active DevSquad AI session from .pi/active-task.json log",
+    handler: async (_args, ctx) => {
+      await handleTeamResume(ctx);
+    }
+  });
+
+  // Command 3: /devsquad-recover
+  pi.registerCommand("devsquad-recover", {
+    description: "Recover any closed agent pane or window in the active DevSquad workspace",
     handler: async (_args, ctx) => {
       const configPath = path.join(process.cwd(), ".pi", "team-config.json");
       if (!fs.existsSync(configPath)) {
-        ctx.ui.notify("Error: team-config.json not found. Run /team-dev first.", "error");
+        ctx.ui.notify("Error: team-config.json not found. Run /devsquad-start first.", "error");
         return;
       }
 
@@ -94,7 +159,44 @@ export default function (pi: ExtensionAPI) {
         const config: TeamConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
         const recoveredPanes = tmux.recoverMissingPanes(config.panes);
         config.panes = recoveredPanes;
-        fs.writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+        saveConfig(config);
+        ctx.ui.notify("Pane recovery check complete!", "info");
+      } catch (err: any) {
+        ctx.ui.notify(`Recovery failed: ${err.message}`, "error");
+      }
+    }
+  });
+
+  // Aliases for backward compatibility
+  pi.registerCommand("team-start", {
+    description: "Start fresh team session (alias to /devsquad-start)",
+    handler: async (_args, ctx) => { await handleTeamStart(ctx); }
+  });
+
+  pi.registerCommand("team-resume", {
+    description: "Resume team session (alias to /devsquad-resume)",
+    handler: async (_args, ctx) => { await handleTeamResume(ctx); }
+  });
+
+  pi.registerCommand("team-dev", {
+    description: "Launch team workflow (alias to /devsquad-start)",
+    handler: async (_args, ctx) => { await handleTeamStart(ctx); }
+  });
+
+  pi.registerCommand("team-recover", {
+    description: "Recover team workspace (alias to /devsquad-recover)",
+    handler: async (_args, ctx) => {
+      const configPath = path.join(process.cwd(), ".pi", "team-config.json");
+      if (!fs.existsSync(configPath)) {
+        ctx.ui.notify("Error: team-config.json not found. Run /devsquad-start first.", "error");
+        return;
+      }
+
+      try {
+        const config: TeamConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
+        const recoveredPanes = tmux.recoverMissingPanes(config.panes);
+        config.panes = recoveredPanes;
+        saveConfig(config);
         ctx.ui.notify("Pane recovery check complete!", "info");
       } catch (err: any) {
         ctx.ui.notify(`Recovery failed: ${err.message}`, "error");
