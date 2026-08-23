@@ -1,0 +1,8 @@
+{
+  "activeIssueId": "3",
+  "status": "qa-verifying",
+  "updatedBy": "developer",
+  "notes": "Implemented PUT /api/v1/campaigns/{id} endpoint (update name, budget, currency, status, dates) with validation and state transition checks.",
+  "reworkCount": 0,
+  "timestamp": "2026-08-23T18:43:00.000Z"
+}
