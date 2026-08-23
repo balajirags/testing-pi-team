@@ -1,8 +1,8 @@
 {
   "activeIssueId": "8",
-  "status": "qa-verifying",
-  "updatedBy": "developer",
-  "notes": "Implemented GET /api/v1/hello endpoint returning Hello World payload, status UP, and ISO-8601 timestamp with 100% test coverage.",
+  "status": "code-review",
+  "updatedBy": "reviewer",
+  "notes": "Code Review in progress for Issue #8 (GET /api/v1/hello).",
   "reworkCount": 0,
-  "timestamp": "2026-08-23T18:25:00.000Z"
+  "timestamp": "2026-08-23T18:30:00.000Z"
 }
