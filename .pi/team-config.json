@@ -1,0 +1,10 @@
+{
+  "mode": "loop-hitl",
+  "panes": {
+    "orchestrator": "%166",
+    "ba": "%167",
+    "developer": "%168",
+    "qa": "%169",
+    "reviewer": "%170"
+  }
+}
