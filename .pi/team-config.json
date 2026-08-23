@@ -1,10 +1,11 @@
 {
   "mode": "loop-hitl",
+  "layout": "panes",
   "panes": {
-    "orchestrator": "%151",
-    "ba": "%152",
-    "developer": "%153",
-    "qa": "%154",
-    "reviewer": "%155"
+    "orchestrator": "%166",
+    "ba": "%167",
+    "developer": "%168",
+    "qa": "%169",
+    "reviewer": "%170"
   }
 }
