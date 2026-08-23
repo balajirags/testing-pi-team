@@ -167,6 +167,15 @@ export function registerBacklogTool(pi: ExtensionAPI) {
               const prompt = `Issue #${params.issueId} requires rework (attempt ${currentReworkCount}/3). Read feedback notes: '${params.notes || "Check review/QA comments"}', fix issues in backend/ or frontend/, re-run build-verify, commit, push, and update status to 'qa-verifying'.`;
               await sendPromptAsync(panes.developer, prompt, false);
             } else if (params.newStatus === "done") {
+              // Automated fallback: close GitHub Issue on tracker if issue ID is numeric
+              if (params.issueId && /^\d+$/.test(params.issueId.trim())) {
+                try {
+                  execSync(`gh issue close ${params.issueId} --comment "Completed and merged to main by DevSquad AI"`, { stdio: "ignore" });
+                } catch {
+                  // Ignore if gh CLI not logged in or non-github tracker
+                }
+              }
+
               // Send end-of-story summary card to Pane 0
               const summaryCard = `\n==============================================================\n` +
                 `🎉 STORY #${params.issueId} COMPLETE & MERGED TO MAIN\n` +

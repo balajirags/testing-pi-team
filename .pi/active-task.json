@@ -1,8 +1,8 @@
 {
-  "activeIssueId": "4",
+  "activeIssueId": "5",
   "status": "done",
   "updatedBy": "reviewer",
-  "notes": "Code Review APPROVED for Issue #4 (DELETE /api/v1/campaigns/{id}). Merged feature/issue-4 into main. All P1/P2 standards verified, unit tests and integration tests passing.",
+  "notes": "Code Review APPROVED for Issue #5 (POST /api/v1/campaigns/import). Merged feature/issue-5 into main. All P1/P2 standards verified, unit tests and integration tests passing.",
   "reworkCount": 0,
-  "timestamp": "2026-08-23T18:55:00.000Z"
+  "timestamp": "2026-08-23T19:00:00.000Z"
 }
