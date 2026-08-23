@@ -1,0 +1,37 @@
+{
+  "name": "pi-agent-team",
+  "version": "1.0.0",
+  "description": "Multi-agent development team extension for Pi Agent (BA, Dev, QA, Reviewer in tmux)",
+  "main": "dist/index.js",
+  "bin": {
+    "devsquad": "./bin/devsquad.js"
+  },
+  "keywords": [
+    "pi-package"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "pi": {
+    "extensions": [
+      "./.pi/extensions"
+    ],
+    "skills": [
+      "./.pi/skills"
+    ],
+    "prompts": [
+      "./.pi/prompts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*"
+  },
+  "dependencies": {
+    "@sinclair/typebox": "^0.34.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}
