@@ -53,14 +53,18 @@ export class TmuxManager {
       `tmux split-window -v -t ${devPane} -P -F "#{pane_id}" "pi -a reviewer; exec bash"`
     ).toString().trim();
 
-    // Configure Pane Persona Titles & Border Styling (using custom @persona property immune to terminal OSC title sequences)
+    // Configure Pane Persona Titles & Border Styling (using window options -w and custom @persona property immune to terminal OSC title sequences)
     try {
-      execSync(`tmux set-option -t ${this.sessionName} allow-rename off`);
+      execSync(`tmux set-option -w -t ${this.sessionName} allow-rename off`);
       execSync(`tmux set-window-option -t ${this.sessionName} automatic-rename off`);
-      execSync(`tmux set-option -t ${this.sessionName} pane-border-status top`);
-      execSync(`tmux set-option -t ${this.sessionName} pane-border-style "fg=blue"`);
-      execSync(`tmux set-option -t ${this.sessionName} pane-active-border-style "fg=green,bold"`);
-      execSync(`tmux set-option -t ${this.sessionName} pane-border-format "#[fg=black,bg=cyan,bold] #{@persona} #[default]"`);
+      execSync(`tmux set-window-option -t ${this.sessionName} pane-border-status top`);
+      execSync(`tmux set-window-option -t ${this.sessionName} pane-border-style "fg=blue"`);
+      execSync(`tmux set-window-option -t ${this.sessionName} pane-active-border-style "fg=green,bold"`);
+      execSync(`tmux set-window-option -t ${this.sessionName} pane-border-format "#[fg=black,bg=cyan,bold] #{@persona} #[default]"`);
+
+      // Set global window option defaults so recovered panes and new windows also show headers
+      execSync(`tmux set-window-option -g pane-border-status top`);
+      execSync(`tmux set-window-option -g pane-border-format "#[fg=black,bg=cyan,bold] #{@persona} #[default]"`);
 
       execSync(`tmux set-option -p -t ${orchestratorPane} @persona "🤖 MASTER ORCHESTRATOR (Pane 0)"`);
       execSync(`tmux set-option -p -t ${baPane} @persona "📋 BUSINESS ANALYST - BA (Pane 1)"`);
