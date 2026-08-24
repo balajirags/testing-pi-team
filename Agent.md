@@ -94,8 +94,13 @@ In **ALL team modes** (`loop-hitl`, `auto`, and `step-hitl`), the system automat
 
 ---
 
-## 🎯 Single Source of Truth (SOT) & Git Sequential Protocol
+## 🎯 Single Source of Truth (SOT) & Extensible Tracker Strategy Pattern
 
+- **Delivery Tracker Strategy Pattern (`ITrackerAdapter`)**: DevSquad AI uses the Strategy Pattern (`ITrackerAdapter`) and `TrackerFactory` to interact with trackers based on `project-context.md`:
+  - **`GitHubIssuesAdapter`**: Uses `gh` CLI for issue creation, comments, status queries, and closing.
+  - **`JiraAdapter`**: Uses `jira` CLI / REST API for ticket creation, status transitions, and closing.
+  - **`MarkdownStoryAdapter`**: Uses local markdown files in `docs/stories/<epic>/<story>.md`.
+  - **Adding New Trackers**: Anyone can extend DevSquad with a new tracker (Linear, Azure DevOps, Trello) by implementing `ITrackerAdapter` in `.pi/extensions/trackers/` and registering it in `TrackerFactory`.
 - **Delivery Tracker is Authoritative SOT**: GitHub Issues, Jira, or `docs/stories/` is the sole source of truth for story requirements, ACs, and lifecycle states (open, closed, merged). `.pi/active-task.json` is strictly an ephemeral in-memory active pointer for live session steering.
 - **Git Sequential Branching**: Developer ALWAYS pulls clean `main` (`git checkout main && git pull origin main`) before cutting a new `feature/issue-<id>` branch. Reviewer merges approved branches back into `main` and pushes `main` before closing the tracker story.
 
