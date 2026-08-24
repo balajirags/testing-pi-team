@@ -1,10 +1,14 @@
 package com.company.app.campaign.service;
 
-import com.company.app.campaign.api.dto.CreateCampaignRequest;
+import com.company.app.campaign.api.dto.AnalyticsSummary;
+import com.company.app.campaign.api.dto.CampaignAnalyticsResponse;
 import com.company.app.campaign.api.dto.CampaignResponse;
+import com.company.app.campaign.api.dto.CreateCampaignRequest;
 import com.company.app.campaign.api.dto.CsvImportSummaryResponse;
 import com.company.app.campaign.api.dto.CsvRowError;
+import com.company.app.campaign.api.dto.DailyAnalyticsMetrics;
 import com.company.app.campaign.api.dto.UpdateCampaignRequest;
+import com.company.app.campaign.domain.CampaignDailyAnalyticsEntity;
 import com.company.app.campaign.domain.CampaignEntity;
 import com.company.app.campaign.domain.CampaignStatus;
 import com.company.app.campaign.exception.DuplicateResourceException;
@@ -12,6 +16,7 @@ import com.company.app.campaign.exception.InvalidStateTransitionException;
 import com.company.app.campaign.exception.ResourceNotFoundException;
 import com.company.app.campaign.repository.AdAccountRepository;
 import com.company.app.campaign.repository.BrandRepository;
+import com.company.app.campaign.repository.CampaignDailyAnalyticsRepository;
 import com.company.app.campaign.repository.CampaignRepository;
 import jakarta.persistence.criteria.Predicate;
 import lombok.RequiredArgsConstructor;
@@ -25,8 +30,10 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +47,7 @@ public class CampaignService {
     private final CampaignRepository campaignRepository;
     private final BrandRepository brandRepository;
     private final AdAccountRepository adAccountRepository;
+    private final CampaignDailyAnalyticsRepository campaignDailyAnalyticsRepository;
 
     @Transactional
     public CampaignResponse createCampaign(CreateCampaignRequest request) {
@@ -141,6 +149,80 @@ public class CampaignService {
 
         CampaignEntity saved = campaignRepository.save(campaign);
         return mapToResponse(saved);
+    }
+
+    @Transactional(readOnly = true)
+    public CampaignAnalyticsResponse getCampaignAnalytics(UUID id, LocalDate startDate, LocalDate endDate) {
+        if (!campaignRepository.existsById(id)) {
+            throw new ResourceNotFoundException("Campaign not found with ID: " + id);
+        }
+
+        LocalDate effectiveEndDate = (endDate != null) ? endDate : LocalDate.now();
+        LocalDate effectiveStartDate = (startDate != null) ? startDate : effectiveEndDate.minusDays(30);
+
+        List<CampaignDailyAnalyticsEntity> entities = campaignDailyAnalyticsRepository
+                .findByCampaignIdAndDateBetweenOrderByDateAsc(id, effectiveStartDate, effectiveEndDate);
+
+        long totalImpressions = 0;
+        long totalClicks = 0;
+        BigDecimal totalSpend = BigDecimal.ZERO;
+        long totalConversions = 0;
+
+        List<DailyAnalyticsMetrics> dailyMetricsList = new ArrayList<>();
+        for (CampaignDailyAnalyticsEntity entity : entities) {
+            long imp = entity.getImpressions();
+            long clk = entity.getClicks();
+            BigDecimal spd = entity.getSpend() != null ? entity.getSpend() : BigDecimal.ZERO;
+            long conv = entity.getConversions();
+
+            double ctr = calculateCtr(clk, imp);
+            double cpc = calculateCpc(spd, clk);
+
+            totalImpressions += imp;
+            totalClicks += clk;
+            totalSpend = totalSpend.add(spd);
+            totalConversions += conv;
+
+            dailyMetricsList.add(new DailyAnalyticsMetrics(
+                    entity.getDate(),
+                    imp,
+                    clk,
+                    spd,
+                    conv,
+                    ctr,
+                    cpc
+            ));
+        }
+
+        double summaryCtr = calculateCtr(totalClicks, totalImpressions);
+        double summaryCpc = calculateCpc(totalSpend, totalClicks);
+
+        AnalyticsSummary summary = new AnalyticsSummary(
+                totalImpressions,
+                totalClicks,
+                totalSpend.setScale(2, RoundingMode.HALF_UP),
+                totalConversions,
+                summaryCtr,
+                summaryCpc
+        );
+
+        return new CampaignAnalyticsResponse(id, summary, dailyMetricsList);
+    }
+
+    private double calculateCtr(long clicks, long impressions) {
+        if (impressions == 0) {
+            return 0.0;
+        }
+        double ctrRaw = ((double) clicks / impressions) * 100.0;
+        return BigDecimal.valueOf(ctrRaw).setScale(2, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    private double calculateCpc(BigDecimal spend, long clicks) {
+        if (clicks == 0 || spend == null || spend.compareTo(BigDecimal.ZERO) == 0) {
+            return 0.0;
+        }
+        BigDecimal cpcRaw = spend.divide(BigDecimal.valueOf(clicks), 4, RoundingMode.HALF_UP);
+        return cpcRaw.setScale(2, RoundingMode.HALF_UP).doubleValue();
     }
 
     @Transactional

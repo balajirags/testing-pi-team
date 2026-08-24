@@ -1,5 +1,6 @@
 package com.company.app.campaign.api;
 
+import com.company.app.campaign.api.dto.CampaignAnalyticsResponse;
 import com.company.app.campaign.api.dto.CampaignResponse;
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
 import com.company.app.campaign.api.dto.CsvImportSummaryResponse;
@@ -11,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 @RestController
@@ -59,6 +62,15 @@ public class CampaignController {
     @GetMapping("/{id}")
     public ResponseEntity<CampaignResponse> getCampaignById(@PathVariable UUID id) {
         CampaignResponse response = campaignService.getCampaignById(id);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{id}/analytics")
+    public ResponseEntity<CampaignAnalyticsResponse> getCampaignAnalytics(
+            @PathVariable UUID id,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate) {
+        CampaignAnalyticsResponse response = campaignService.getCampaignAnalytics(id, startDate, endDate);
         return ResponseEntity.ok(response);
     }
 

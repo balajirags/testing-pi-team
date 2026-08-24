@@ -1,8 +1,11 @@
 package com.company.app.campaign.api;
 
+import com.company.app.campaign.api.dto.AnalyticsSummary;
+import com.company.app.campaign.api.dto.CampaignAnalyticsResponse;
 import com.company.app.campaign.api.dto.CampaignResponse;
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
 import com.company.app.campaign.api.dto.CsvImportSummaryResponse;
+import com.company.app.campaign.api.dto.DailyAnalyticsMetrics;
 import com.company.app.campaign.api.dto.UpdateCampaignRequest;
 import com.company.app.campaign.domain.CampaignStatus;
 import com.company.app.campaign.exception.DuplicateResourceException;
@@ -26,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -391,5 +395,44 @@ class CampaignControllerTest {
                 .andExpect(jsonPath("$.created", is(50)))
                 .andExpect(jsonPath("$.failed", is(0)))
                 .andExpect(jsonPath("$.errors", hasSize(0)));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/campaigns/{id}/analytics - Happy path returns 200 OK with analytics payload")
+    void getCampaignAnalytics_HappyPath() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+        AnalyticsSummary summary = new AnalyticsSummary(10000, 250, new BigDecimal("312.50"), 15, 2.50, 1.25);
+        DailyAnalyticsMetrics daily = new DailyAnalyticsMetrics(
+                LocalDate.of(2026, 8, 1), 2000, 50, new BigDecimal("62.50"), 3, 2.50, 1.25
+        );
+        CampaignAnalyticsResponse analyticsResponse = new CampaignAnalyticsResponse(campaignId, summary, List.of(daily));
+
+        when(campaignService.getCampaignAnalytics(eq(campaignId), any(), any())).thenReturn(analyticsResponse);
+
+        mockMvc.perform(get("/api/v1/campaigns/{id}/analytics", campaignId)
+                        .param("startDate", "2026-08-01")
+                        .param("endDate", "2026-08-15"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.campaignId", is(campaignId.toString())))
+                .andExpect(jsonPath("$.summary.totalImpressions", is(10000)))
+                .andExpect(jsonPath("$.summary.totalClicks", is(250)))
+                .andExpect(jsonPath("$.summary.totalSpend", is(312.50)))
+                .andExpect(jsonPath("$.summary.ctr", is(2.50)))
+                .andExpect(jsonPath("$.summary.cpc", is(1.25)))
+                .andExpect(jsonPath("$.dailyBreakdown", hasSize(1)))
+                .andExpect(jsonPath("$.dailyBreakdown[0].date", is("2026-08-01")));
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/campaigns/{id}/analytics - Not found returns 404 ProblemDetail")
+    void getCampaignAnalytics_NotFound() throws Exception {
+        UUID campaignId = UUID.randomUUID();
+        when(campaignService.getCampaignAnalytics(eq(campaignId), any(), any()))
+                .thenThrow(new ResourceNotFoundException("Campaign not found with ID: " + campaignId));
+
+        mockMvc.perform(get("/api/v1/campaigns/{id}/analytics", campaignId))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.title", is("Resource Not Found")))
+                .andExpect(jsonPath("$.detail", containsString("Campaign not found")));
     }
 }

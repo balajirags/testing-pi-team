@@ -1,11 +1,13 @@
 package com.company.app.campaign.service;
 
+import com.company.app.campaign.api.dto.CampaignAnalyticsResponse;
 import com.company.app.campaign.api.dto.CreateCampaignRequest;
 import com.company.app.campaign.api.dto.CampaignResponse;
 import com.company.app.campaign.api.dto.CsvImportSummaryResponse;
 import com.company.app.campaign.api.dto.UpdateCampaignRequest;
 import com.company.app.campaign.domain.AdAccountEntity;
 import com.company.app.campaign.domain.BrandEntity;
+import com.company.app.campaign.domain.CampaignDailyAnalyticsEntity;
 import com.company.app.campaign.domain.CampaignEntity;
 import com.company.app.campaign.domain.CampaignStatus;
 import com.company.app.campaign.exception.DuplicateResourceException;
@@ -13,6 +15,7 @@ import com.company.app.campaign.exception.InvalidStateTransitionException;
 import com.company.app.campaign.exception.ResourceNotFoundException;
 import com.company.app.campaign.repository.AdAccountRepository;
 import com.company.app.campaign.repository.BrandRepository;
+import com.company.app.campaign.repository.CampaignDailyAnalyticsRepository;
 import com.company.app.campaign.repository.CampaignRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +34,7 @@ import org.springframework.mock.web.MockMultipartFile;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -52,6 +56,9 @@ class CampaignServiceTest {
 
     @Mock
     private AdAccountRepository adAccountRepository;
+
+    @Mock
+    private CampaignDailyAnalyticsRepository campaignDailyAnalyticsRepository;
 
     @InjectMocks
     private CampaignService campaignService;
@@ -570,6 +577,105 @@ class CampaignServiceTest {
             assertThat(summary.errors().get(5).message()).contains("Campaign mapping already exists");
             assertThat(summary.errors().get(6).message()).contains("budget must be non-negative");
             assertThat(summary.errors().get(7).message()).contains("Invalid budget number format");
+        }
+    }
+
+    @Nested
+    @DisplayName("Campaign Analytics Tests")
+    class CampaignAnalyticsTests {
+
+        @Test
+        @DisplayName("Should successfully calculate campaign analytics and daily breakdown")
+        void getCampaignAnalytics_Success() {
+            UUID campaignId = UUID.randomUUID();
+            LocalDate startDate = LocalDate.of(2026, 8, 1);
+            LocalDate endDate = LocalDate.of(2026, 8, 2);
+
+            when(campaignRepository.existsById(campaignId)).thenReturn(true);
+
+            CampaignDailyAnalyticsEntity d1 = CampaignDailyAnalyticsEntity.builder()
+                    .id(UUID.randomUUID())
+                    .campaignId(campaignId)
+                    .date(startDate)
+                    .impressions(5000)
+                    .clicks(100)
+                    .spend(new BigDecimal("125.00"))
+                    .conversions(5)
+                    .build();
+
+            CampaignDailyAnalyticsEntity d2 = CampaignDailyAnalyticsEntity.builder()
+                    .id(UUID.randomUUID())
+                    .campaignId(campaignId)
+                    .date(endDate)
+                    .impressions(5000)
+                    .clicks(150)
+                    .spend(new BigDecimal("187.50"))
+                    .conversions(10)
+                    .build();
+
+            when(campaignDailyAnalyticsRepository.findByCampaignIdAndDateBetweenOrderByDateAsc(campaignId, startDate, endDate))
+                    .thenReturn(List.of(d1, d2));
+
+            CampaignAnalyticsResponse response = campaignService.getCampaignAnalytics(campaignId, startDate, endDate);
+
+            assertThat(response).isNotNull();
+            assertThat(response.campaignId()).isEqualTo(campaignId);
+            assertThat(response.summary().totalImpressions()).isEqualTo(10000);
+            assertThat(response.summary().totalClicks()).isEqualTo(250);
+            assertThat(response.summary().totalSpend()).isEqualTo(new BigDecimal("312.50"));
+            assertThat(response.summary().totalConversions()).isEqualTo(15);
+            assertThat(response.summary().ctr()).isEqualTo(2.50);
+            assertThat(response.summary().cpc()).isEqualTo(1.25);
+
+            assertThat(response.dailyBreakdown()).hasSize(2);
+            assertThat(response.dailyBreakdown().get(0).ctr()).isEqualTo(2.00);
+            assertThat(response.dailyBreakdown().get(0).cpc()).isEqualTo(1.25);
+            assertThat(response.dailyBreakdown().get(1).ctr()).isEqualTo(3.00);
+            assertThat(response.dailyBreakdown().get(1).cpc()).isEqualTo(1.25);
+        }
+
+        @Test
+        @DisplayName("Should safely handle zero impressions and zero clicks with 0.0 CTR and CPC")
+        void getCampaignAnalytics_ZeroImpressionsAndClicks() {
+            UUID campaignId = UUID.randomUUID();
+            LocalDate startDate = LocalDate.of(2026, 8, 1);
+            LocalDate endDate = LocalDate.of(2026, 8, 1);
+
+            when(campaignRepository.existsById(campaignId)).thenReturn(true);
+
+            CampaignDailyAnalyticsEntity d1 = CampaignDailyAnalyticsEntity.builder()
+                    .id(UUID.randomUUID())
+                    .campaignId(campaignId)
+                    .date(startDate)
+                    .impressions(0)
+                    .clicks(0)
+                    .spend(BigDecimal.ZERO)
+                    .conversions(0)
+                    .build();
+
+            when(campaignDailyAnalyticsRepository.findByCampaignIdAndDateBetweenOrderByDateAsc(campaignId, startDate, endDate))
+                    .thenReturn(List.of(d1));
+
+            CampaignAnalyticsResponse response = campaignService.getCampaignAnalytics(campaignId, startDate, endDate);
+
+            assertThat(response).isNotNull();
+            assertThat(response.summary().totalImpressions()).isZero();
+            assertThat(response.summary().totalClicks()).isZero();
+            assertThat(response.summary().ctr()).isEqualTo(0.0);
+            assertThat(response.summary().cpc()).isEqualTo(0.0);
+            assertThat(response.dailyBreakdown().get(0).ctr()).isEqualTo(0.0);
+            assertThat(response.dailyBreakdown().get(0).cpc()).isEqualTo(0.0);
+        }
+
+        @Test
+        @DisplayName("Should throw ResourceNotFoundException when campaign does not exist")
+        void getCampaignAnalytics_NotFound() {
+            UUID campaignId = UUID.randomUUID();
+            when(campaignRepository.existsById(campaignId)).thenReturn(false);
+
+            assertThatThrownBy(() -> campaignService.getCampaignAnalytics(campaignId, null, null))
+                    .isInstanceOf(ResourceNotFoundException.class)
+                    .hasMessageContaining("Campaign not found with ID: " + campaignId);
         }
     }
 }
