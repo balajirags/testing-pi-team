@@ -56,20 +56,23 @@ The DevSquad AI team configuration is managed directly via `.pi/team-config.json
 ```json
 {
   "mode": "loop-hitl",
-  "layout": "panes"
+  "layout": "panes",
+  "destructiveCommandPolicy": "ask-human",
+  "customProtectedFiles": []
 }
 ```
 
 - **`mode`**: `"loop-hitl"` (default), `"step-hitl"`, or `"auto"`.
-- **`layout`**:
-  - `"panes"` (Default): Launches 5 split panes within 1 window (`team`).
-  - `"windows"`: Launches 5 full-screen windows within the same session (`orchestrator`, `ba`, `developer`, `qa`, `reviewer`).
+- **`layout`**: `"panes"` (default split) or `"windows"` (full-screen windows).
+- **`destructiveCommandPolicy`**: `"ask-human"` (default: prompts Pane 0 for approval before `rm` / `git push --force`), `"block"`, or `"allow"`.
+- **`customProtectedFiles`**: Additional sensitive file patterns to hard-block from reading.
 
-### 🚀 Slash Commands
-- **`/team-start`**: Starts a fresh team session. Resets `.pi/active-task.json` log, sets up the workspace layout, launches idle child agents, and waits for human input in Pane 0.
-- **`/team-resume`**: Resumes an active team session. Reads `.pi/active-task.json` log to recover task state (`activeIssueId`, `status`), recovers the workspace, and resumes Orchestrator state.
-- **`/team-dev`**: Backward-compatibility alias for `/team-start`.
-- **`/team-recover`**: Recovers any closed pane or window in the workspace.
+---
+
+## 🛡️ DevSquad Security Guard
+
+- **Non-Negotiable Protected Files**: Reading `.env`, `.env.*`, `.bashrc`, `.zshrc`, `~/.ssh/` keys, `~/.aws/credentials`, and any files in `customProtectedFiles` is **strictly prohibited by default** for all agents.
+- **Destructive Command Interception**: Commands matching `rm`, `git push --force`, or `git reset --hard` trigger human approval requests in Pane 0 when `destructiveCommandPolicy` is set to `"ask-human"`.
 
 ---
 
