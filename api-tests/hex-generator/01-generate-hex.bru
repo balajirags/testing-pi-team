@@ -1,0 +1,39 @@
+meta {
+  name: Generate Hex String
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/hex/generate
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "text": "hello world",
+    "length": 32
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.headers["content-type"]: contains application/json
+  res.body.text: eq hello world
+  res.body.length: eq 32
+  res.body.hex: isDefined
+  res.body.timestamp: isDefined
+}
+
+tests {
+  test("should return 200 OK with 32-character hex payload", function() {
+    expect(res.getStatus()).to.equal(200);
+    const body = res.getBody();
+    expect(body.text).to.equal("hello world");
+    expect(body.length).to.equal(32);
+    expect(body.hex).to.be.a('string');
+    expect(body.hex).to.have.lengthOf(32);
+    expect(body.timestamp).to.be.a('string');
+  });
+}
