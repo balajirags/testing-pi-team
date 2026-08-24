@@ -30,8 +30,8 @@ public class GlobalExceptionHandler {
         return problemDetail;
     }
 
-    @ExceptionHandler({InvalidStateTransitionException.class, IllegalArgumentException.class})
-    public ProblemDetail handleInvalidStateTransitionOrArgumentException(RuntimeException ex) {
+    @ExceptionHandler({InvalidStateTransitionException.class, IllegalArgumentException.class, org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class})
+    public ProblemDetail handleInvalidStateTransitionOrArgumentException(Exception ex) {
         ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
         problemDetail.setTitle("Invalid Request State or Argument");
         problemDetail.setType(URI.create("about:blank"));
